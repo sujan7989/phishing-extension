@@ -167,9 +167,19 @@ function logPhishingDetection(url, reason, probability, features = {}) {
 console.log("🔧 [PhishGuard] Setting up tab listener...");
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  console.log("📍 [PhishGuard] Tab updated:", tabId, changeInfo.status, tab.url);
-  if (changeInfo.status !== "complete" || !tab?.url) return;
-  if (!/^https?:/i.test(tab.url)) return;
+  console.log("🔔 [PhishGuard] Tab updated:", tabId, changeInfo.status, tab?.url);
+  
+  if (changeInfo.status !== "complete" || !tab?.url) {
+    console.log("⏭️ [PhishGuard] Skipping - not complete or no URL");
+    return;
+  }
+  
+  if (!/^https?:/i.test(tab.url)) {
+    console.log("⏭️ [PhishGuard] Skipping - not HTTP/HTTPS:", tab.url);
+    return;
+  }
+  
+  console.log("📍 [PhishGuard] Analyzing URL:", tab.url);
 
   const warningUrlPrefix = chrome.runtime.getURL("warning.html");
   const simpleWarningUrlPrefix = chrome.runtime.getURL("simple_warning.html");
@@ -190,7 +200,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     return;
   }
 
-  console.log("[PhishGuard] 🔍 Checking URL:", tab.url);
+  console.log("[PhishGuard] 🔍 NOT whitelisted - Checking URL:", tab.url);
 
   fetch("https://phishing-extension-6qs8.onrender.com/predict", {
     method: "POST",
