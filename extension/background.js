@@ -181,7 +181,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     return;
   }
 
-  fetch("https://phishing-extension-6qs8.onrender.com", {
+  fetch("https://phishing-extension-6qs8.onrender.com/predict", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url: tab.url }),
