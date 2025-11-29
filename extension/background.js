@@ -1,4 +1,9 @@
 // ==============================
+// Extension Started
+// ==============================
+console.log("🚀 [PhishGuard] Extension loaded and running!");
+
+// ==============================
 // Safe Chrome API Wrapper
 // Handles both callback and promise APIs correctly
 // ==============================
@@ -159,7 +164,10 @@ function logPhishingDetection(url, reason, probability, features = {}) {
 // ==============================
 // URL Checking Logic
 // ==============================
+console.log("🔧 [PhishGuard] Setting up tab listener...");
+
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  console.log("📍 [PhishGuard] Tab updated:", tabId, changeInfo.status, tab.url);
   if (changeInfo.status !== "complete" || !tab?.url) return;
   if (!/^https?:/i.test(tab.url)) return;
 
