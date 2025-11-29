@@ -181,7 +181,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     return;
   }
 
-  fetch("http://127.0.0.1:5000/predict", {
+  fetch("https://phishing-extension-6qs8.onrender.com", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url: tab.url }),
@@ -300,7 +300,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
 
         // Send to backend
-        const res = await fetch("http://127.0.0.1:5000/report", {
+        const res = await fetch("https://phishing-extension-6qs8.onrender.com/report", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: message.url }),
