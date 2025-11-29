@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PhishGuard - Popup</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body.popup {
+      font-family: Arial, sans-serif;
+      padding: 15px;
+      width: 260px;
+      background: #fdfdfd;
+    }
+    h3 {
+      margin: 0 0 12px;
+      font-size: 18px;
+      color: #004080;
+      text-align: center;
+    }
+    .result-box {
+      padding: 12px;
+      border-radius: 8px;
+      background: #fafafa;
+      border: 1px solid #ccc;
+      text-align: center;
+      font-size: 14px;
+      min-height: 50px;
+      line-height: 1.5;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+    .safe {
+      background: #d4edda;
+      border-color: #c3e6cb;
+      color: #155724;
+    }
+    .suspicious {
+      background: #fff3cd;
+      border-color: #ffeeba;
+      color: #856404;
+    }
+    .phishing {
+      background: #f8d7da;
+      border-color: #f5c6cb;
+      color: #721c24;
+    }
+    /* Buttons */
+    .dashboard-btn, .report-btn {
+      margin-top: 12px;
+      display: block;
+      width: 100%;
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+    .dashboard-btn {
+      background: #004080;
+      color: white;
+    }
+    .dashboard-btn:hover {
+      background: #0066cc;
+    }
+    .report-btn {
+      background: #d9534f;
+      color: white;
+    }
+    .report-btn:hover {
+      background: #c9302c;
+    }
+  </style>
+</head>
+<body class="popup">
+  <h3>PhishGuard</h3>
+  <div id="result" class="result-box">Checking...</div>
+
+  <!-- Dashboard Button -->
+  <button id="openDashboard" class="dashboard-btn" title="Open extension dashboard">
+    📊 Open Dashboard
+  </button>
+
+  <!-- Report Button -->
+  <button id="reportBtn" class="report-btn" title="Report this site as suspicious">
+    🚨 Report Site
+  </button>
+
+  <script src="popup.js"></script>
+</body>
+</html>

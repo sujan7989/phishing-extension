@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PhishGuard - Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="icons/icon32.png" type="image/png" />
+  <script src="chart.umd.min.js" defer></script>
+
+  <style>
+    /* --- existing styles remain unchanged --- */
+    body { font-family: Arial, sans-serif; background: #f8f9fa; margin: 0; padding: 0; color: #333; transition: background 0.3s, color 0.3s; }
+    body.dark { background: #1e1e1e; color: #e0e0e0; }
+    .dashboard-box { padding: 20px; }
+    .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+    #backBtn, #darkModeToggle { padding: 6px 12px; border: none; border-radius: 6px; background: #0d6efd; color: #fff; cursor: pointer; font-size: 14px; transition: 0.2s; }
+    #backBtn:hover, #darkModeToggle:hover { background: #0b5ed7; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; margin-bottom: 20px; }
+    .stat-card { background: #fff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center; transition: transform 0.2s, background 0.3s; }
+    body.dark .stat-card { background: #2c2c2c; }
+    .stat-card:hover { transform: scale(1.03); }
+    .stat-card h3 { margin: 0; font-size: 20px; color: #004080; }
+    .stat-card p { margin: 5px 0 0; color: #555; font-size: 14px; }
+    body.dark .stat-card p { color: #ccc; }
+    #chartContainer, #timelineContainer { margin: 20px auto; width: 90%; max-width: 700px; background: #fff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: background 0.3s; }
+    body.dark #chartContainer, body.dark #timelineContainer { background: #2c2c2c; }
+    canvas { display: block; max-width: 100%; height: 300px !important; }
+    .controls { margin: 15px 0; text-align: center; display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+    .controls select, .controls button, .controls input { padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; transition: 0.2s; }
+    .controls button { background: #0d6efd; color: #fff; border: none; }
+    .controls button:hover { background: #0b5ed7; }
+    body.dark .controls select, body.dark .controls input { background: #333; color: #fff; border: 1px solid #666; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: background 0.3s; }
+    body.dark table { background: #2c2c2c; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; word-break: break-word; }
+    body.dark th, body.dark td { border: 1px solid #444; }
+    th { background: #f4f4f4; }
+    body.dark th { background: #444; }
+    .center { text-align: center; margin: 15px 0; }
+    .clear-btn { background: #dc3545; color: #fff; padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s; }
+    .clear-btn:hover { background: #bb2d3b; }
+    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
+    .modal-content { background: #fff; margin: 8% auto; padding: 20px; border-radius: 10px; width: 80%; max-width: 600px; }
+    body.dark .modal-content { background: #2c2c2c; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .modal-header h3 { margin: 0; color: #004080; }
+    .close { font-size: 22px; font-weight: bold; cursor: pointer; color: #333; }
+    .close:hover { color: red; }
+    #featuresTable { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
+    #featuresTable th, #featuresTable td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+    #featuresTable th { background: #f4f4f4; }
+    body.dark #featuresTable th { background: #444; }
+  </style>
+</head>
+<body class="dashboard">
+  <main class="dashboard-box">
+    <div class="top-bar">
+      <button id="backBtn" aria-label="Go back to previous page">⬅ Back</button>
+      <h2>📊 PhishGuard Activity Dashboard</h2>
+      <button id="darkModeToggle" aria-label="Toggle dark mode">🌙 Dark Mode</button>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card"><h3 id="totalCount">0</h3><p>Total URLs Checked</p></div>
+      <div class="stat-card"><h3 id="phishingCount">0</h3><p>Phishing</p></div>
+      <div class="stat-card"><h3 id="suspiciousCount">0</h3><p>Suspicious</p></div>
+      <div class="stat-card"><h3 id="safeCount">0</h3><p>Safe</p></div>
+    </div>
+
+    <div id="chartContainer"><canvas id="phishChart"></canvas></div>
+    <div id="timelineContainer"><canvas id="timelineChart"></canvas></div>
+
+    <div class="controls">
+      <label for="filterSelect"><b>Filter:</b></label>
+      <select id="filterSelect">
+        <option value="all">All</option>
+        <option value="phishing">Phishing</option>
+        <option value="suspicious">Suspicious</option>
+        <option value="safe">Safe</option>
+      </select>
+      <input type="text" id="searchInput" placeholder="🔍 Search URL..." />
+      <button id="exportHistoryBtn">⬇ Export CSV</button>
+      <button id="exportPdfBtn">📑 Export PDF</button>
+    </div>
+
+    <!-- ================== History Table ================== -->
+    <h3>Scan History</h3>
+    <table id="historyTable">
+      <thead>
+        <tr>
+          <th>Time</th><th>URL</th><th>Prediction</th><th>Probability</th><th>Features</th>
+        </tr>
+      </thead>
+      <tbody id="historyBody"></tbody>
+    </table>
+
+    <div class="center">
+      <button id="clearHistoryBtn" class="clear-btn">🗑 Clear History</button>
+    </div>
+
+    <!-- ================== Reported Sites Table ================== -->
+    <h3>Reported Sites</h3>
+    <table id="reportedTable">
+      <thead>
+        <tr>
+          <th>Time</th><th>URL</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="reportedBody"></tbody>
+    </table>
+  </main>
+
+  <!-- Features Modal -->
+  <div id="featuresModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="featuresModalTitle">🤖 AI Features</h3>
+        <span class="close" id="closeModal">&times;</span>
+      </div>
+      <table id="featuresTable">
+        <thead><tr><th>Feature</th><th>Value</th></tr></thead>
+        <tbody id="featuresBody">
+          <tr><td colspan="2" style="text-align:center; color:gray;">No features loaded</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="dashboard.js" defer></script>
+</body>
+</html>

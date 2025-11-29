@@ -1,0 +1,347 @@
+/* =========================
+   Global Styles
+========================= */
+body {
+  font-family: "Segoe UI", Arial, sans-serif;
+  margin: 0;
+  padding: 10px;
+  background: #f9f9f9;
+  color: #333;
+  line-height: 1.6;
+}
+
+h1, h2, h3 {
+  margin: 0;
+  font-weight: bold;
+  color: #222;
+}
+
+p {
+  font-size: 15px;
+  margin: 10px 0;
+}
+
+/* =========================
+   Popup
+========================= */
+body.popup {
+  width: 300px;
+  min-height: 180px;
+  background: #ffffff;
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0px 6px 16px rgba(0,0,0,0.15);
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.popup h3 {
+  text-align: center;
+  color: #004080;
+  margin-bottom: 14px;
+  font-size: 18px;
+}
+
+.result-box {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  text-align: center;
+  box-shadow: 0px 3px 8px rgba(0,0,0,0.1);
+  transition: background 0.3s ease, color 0.3s ease, transform 0.2s;
+  min-height: 55px;
+  line-height: 1.5;
+}
+
+.result-box:hover {
+  transform: scale(1.02);
+}
+
+.result-box.safe {
+  background: #d4edda;
+  border: 1px solid #c3e6cb;
+  color: #155724;
+}
+
+.result-box.suspicious {
+  background: #fff3cd;
+  border: 1px solid #ffeeba;
+  color: #856404;
+}
+
+.result-box.phishing {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+}
+
+/* Progress Bar */
+.progress-container {
+  margin-top: 14px;
+  height: 12px;
+  width: 100%;
+  background: #eee;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: inset 0px 2px 4px rgba(0,0,0,0.1);
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #28a745, #218838);
+  transition: width 0.6s ease, background 0.6s ease;
+}
+
+/* =========================
+   Warning Page
+========================= */
+body.warning {
+  background: linear-gradient(135deg, #ffdddd, #ffeaea);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.warning-box {
+  background: #fff;
+  border: 2px solid red;
+  border-radius: 18px;
+  padding: 30px;
+  max-width: 720px;
+  width: 95%;
+  text-align: left;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+  animation: fadeIn 0.6s ease-in-out;
+}
+
+.warning-box h2 {
+  color: red;
+  text-align: center;
+  margin: 18px 0;
+  font-size: 24px;
+}
+
+.warning-box p {
+  font-size: 16px;
+}
+
+.warning-box #blockedUrl {
+  word-wrap: break-word;
+  color: darkred;
+  font-weight: bold;
+}
+
+.warning-box #reason {
+  font-weight: bold;
+  color: #222;
+}
+
+.warning-box .btn {
+  padding: 12px 22px;
+  margin: 8px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.warning-box .btn:hover {
+  transform: scale(1.07);
+}
+
+.btn.back { background: #e60000; color: white; }
+.btn.proceed { background: #555; color: white; }
+.btn.details { background: #003366; color: white; }
+
+/* =========================
+   Details Page
+========================= */
+body.details {
+  background: linear-gradient(135deg, #f5f7fa, #e4ebf7);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.details-box {
+  background: #fff;
+  border-radius: 18px;
+  padding: 40px;
+  width: 100%;
+  max-width: 950px;
+  box-shadow: 0px 10px 28px rgba(0,0,0,0.2);
+  animation: fadeIn 0.6s ease-in-out;
+}
+
+.details-box .header {
+  text-align: center;
+  margin-bottom: 25px;
+}
+
+.details-box .header img {
+  width: 75px;
+  height: 75px;
+}
+
+.details-box .header h2 {
+  margin: 12px 0 5px;
+  font-size: 28px;
+  color: #d8000c;
+}
+
+.details-box .header p {
+  font-size: 15px;
+  color: #444;
+}
+
+.details-box table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 20px;
+  font-size: 15px;
+}
+
+.details-box table, 
+.details-box th, 
+.details-box td {
+  border: 1px solid #ddd;
+  padding: 12px;
+}
+
+.details-box th {
+  background: #f8f8f8;
+  text-align: left;
+  font-weight: bold;
+}
+
+.details-box td {
+  word-break: break-word;
+}
+
+.details-box .btn {
+  margin-top: 28px;
+  padding: 14px 32px;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
+  background: #004080;
+  color: white;
+  transition: background 0.3s ease, transform 0.2s ease;
+  display: inline-block;
+}
+
+.details-box .btn:hover {
+  background: #002b5c;
+  transform: scale(1.05);
+}
+
+.details-box .no-features {
+  color: gray;
+  font-style: italic;
+  margin-top: 15px;
+  text-align: center;
+}
+
+/* =========================
+   Utility
+========================= */
+.center {
+  text-align: center;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* =========================
+   Responsive
+========================= */
+@media (max-width: 600px) {
+  .warning-box,
+  .details-box {
+    padding: 22px;
+  }
+
+  .warning-box h2,
+  .details-box .header h2 {
+    font-size: 20px;
+  }
+
+  .warning-box .btn,
+  .details-box .btn {
+    width: 100%;
+    margin: 10px 0;
+  }
+}
+/* =========================
+   Dashboard Page
+========================= */
+body.dashboard {
+  background: #f5f7fa;
+  min-height: 100vh;
+  padding: 30px;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+.dashboard-box {
+  background: #fff;
+  border-radius: 16px;
+  padding: 25px;
+  max-width: 900px;
+  margin: auto;
+  box-shadow: 0px 8px 20px rgba(0,0,0,0.15);
+  animation: fadeIn 0.6s ease-in-out;
+}
+
+.dashboard-box h2 {
+  text-align: center;
+  color: #004080;
+  margin-bottom: 20px;
+}
+
+.dashboard-box table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.dashboard-box th,
+.dashboard-box td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  font-size: 14px;
+  text-align: left;
+}
+
+.dashboard-box th {
+  background: #004080;
+  color: white;
+}
+
+.dashboard-box td {
+  word-break: break-word;
+}
+
+.dashboard-box .clear-btn {
+  margin-top: 20px;
+  display: inline-block;
+  padding: 10px 20px;
+  background: #d9534f;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.dashboard-box .clear-btn:hover {
+  background: #b52b27;
+}

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>⚠️ Warning: Potential Phishing Site</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      background: linear-gradient(135deg, #ffdddd, #ffeaea);
+      font-family: Arial, sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .box {
+      background: #fff;
+      border: 2px solid red;
+      border-radius: 15px;
+      padding: 30px;
+      max-width: 700px;
+      width: 92%;
+      text-align: left;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+      animation: fadeIn 0.6s ease-in-out;
+      position: relative;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .icon { text-align: center; margin-bottom: 15px; }
+    .icon img { width: 90px; height: 90px; }
+    h2 { color: red; text-align: center; margin-top: 10px; }
+    p { font-size: 16px; line-height: 1.5; margin: 5px 0; }
+    .btn {
+      padding: 12px 24px;
+      margin: 8px;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn:hover { transform: scale(1.05); }
+    .back { background: red; color: white; }
+    .proceed { background: #666; color: white; }
+    .details { background: darkblue; color: white; }
+    .copy { background: teal; color: white; font-size: 14px; padding: 6px 12px; margin-left: 8px; }
+
+    .dashboard {
+      background: darkgreen;
+      color: white;
+      font-size: 14px;
+      padding: 8px 16px;
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .section {
+      margin-top: 20px;
+      padding: 12px;
+      background: #fafafa;
+      border-left: 4px solid #ccc;
+      border-radius: 6px;
+      word-break: break-word;
+    }
+    #reason { font-weight: bold; }
+    .progress-container {
+      margin-top: 10px;
+      background: #eee;
+      border-radius: 10px;
+      overflow: hidden;
+      height: 25px;
+      width: 100%;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .progress-bar {
+      height: 100%;
+      text-align: center;
+      line-height: 25px;
+      color: white;
+      font-weight: bold;
+      width: 0%;
+      transition: width 0.8s ease-in-out;
+    }
+    #riskLevel { margin-top: 8px; font-size: 15px; text-align: right; }
+    #timestamp { margin-top: 10px; font-size: 13px; text-align: right; color: #444; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 6px 10px; font-size: 14px; }
+    th { background: #f1f1f1; }
+    #featuresSection { display: none; }
+
+    @media (max-width: 600px) {
+      .box { padding: 20px; }
+      .btn { display: block; width: 100%; margin: 10px 0; }
+      .copy { margin-left: 0; margin-top: 8px; width: 100%; }
+      .dashboard { position: static; display: block; width: 100%; margin-top: 10px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+  <main class="box" role="alert" aria-live="assertive">
+    <!-- Dashboard button -->
+    <button id="dashboardBtn" class="btn dashboard" aria-label="Open Dashboard">📊 Dashboard</button>
+
+    <!-- Icon -->
+    <div class="icon">
+      <img src="icons/icon48.png" alt="Warning Shield Icon" />
+    </div>
+
+    <h2>⚠️ Warning: Potential Phishing Site</h2>
+    <p style="text-align: center; margin-bottom: 20px;">
+      This site may be trying to steal your information. Proceed with caution.
+    </p>
+
+    <section class="section">
+      <strong>Blocked URL:</strong>
+      <span id="blockedUrl" style="color: darkred; font-weight: bold;">Loading...</span>
+      <button id="copyBtn" class="btn copy" aria-label="Copy URL">📋 Copy</button>
+    </section>
+
+    <section class="section">
+      <strong>Reason:</strong>
+      <p id="reason">Loading...</p>
+    </section>
+
+    <section class="section">
+      <strong>Phishing Probability:</strong>
+      <div class="progress-container">
+        <div id="phishProbBar" class="progress-bar">0%</div>
+      </div>
+      <p id="phishProbText" style="text-align:right; margin-top:5px; font-size:14px; color:#333;">0%</p>
+      <p id="riskLevel">Low Risk</p>
+    </section>
+
+    <section id="featuresSection" class="section">
+      <strong>AI Features:</strong>
+      <table>
+        <thead>
+          <tr><th>Feature</th><th>Value</th></tr>
+        </thead>
+        <tbody id="featuresBody">
+          <tr><td colspan="2" style="text-align:center; color:gray;">No features</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <p id="timestamp">Checking time...</p>
+
+    <div style="text-align: center; margin-top: 20px;">
+      <button id="backBtn" class="btn back">⬅ Go Back</button>
+      <button id="proceedBtn" class="btn proceed">⚠ Proceed Anyway</button>
+      <button id="detailsBtn" class="btn details">ℹ View Details</button>
+    </div>
+  </main>
+
+  <!-- Only warning.js handles buttons -->
+  <script src="warning.js"></script>
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>⚠️ Warning: Potential Phishing Site</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #b71c1c; /* Strong red background */
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      text-align: center;
+    }
+
+    .card {
+      background: #fff;
+      color: #000;
+      border-radius: 14px;
+      padding: 35px;
+      max-width: 480px;
+      width: 90%;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+      text-align: center;
+      animation: fadeIn 0.6s ease-in-out;
+    }
+
+    h1 {
+      font-size: 24px;
+      margin-bottom: 18px;
+      color: #d32f2f;
+    }
+
+    p {
+      font-size: 16px;
+      margin-bottom: 28px;
+      color: #444;
+      line-height: 1.5;
+    }
+
+    .buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    button {
+      padding: 13px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.25s ease-in-out;
+    }
+
+    .back {
+      background-color: #d32f2f;
+      color: #fff;
+    }
+    .back:hover {
+      background-color: #b71c1c;
+    }
+
+    .details {
+      background-color: #1976d2;
+      color: #fff;
+    }
+    .details:hover {
+      background-color: #0d47a1;
+    }
+
+    .report {
+      background-color: #fbc02d;
+      color: #000;
+    }
+    .report:hover {
+      background-color: #f9a825;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>⚠️ Suspicious Website Detected</h1>
+    <p>
+      This site may be trying to steal your information.<br>
+      It is strongly recommended that you go back.
+    </p>
+    <div class="buttons">
+      <button id="goBackSimple" class="back" aria-label="Go back to safety">⬅ Go Back</button>
+      <button id="detailsBtn" class="details" aria-label="View more details">📊 More Details</button>
+      <button id="reportBtn" class="report" aria-label="Report this site">🚨 Report This Site</button>
+    </div>
+  </div>
+
+  <!-- External JS (MV3 compliant) -->
+  <script src="simple_warning.js" defer></script>
+</body>
+</html>

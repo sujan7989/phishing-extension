@@ -1,0 +1,32 @@
+[
+  {
+    "url": "http://127.0.0.1:5000/predict?url=http://paypal.com/login",
+    "reason": "User reported phishing",
+    "timestamp": "2025-09-08T19:30:30.311861"
+  },
+  {
+    "url": "http://127.0.0.1:5000/predict?url=http://paypal.com/login",
+    "reason": "User reported phishing",
+    "timestamp": "2025-09-09T05:55:15.597820"
+  },
+  {
+    "url": "http://127.0.0.1:5000/predict?url=http://paypal.com/login",
+    "reason": "User reported phishing",
+    "timestamp": "2025-09-09T06:46:15.214335"
+  },
+  {
+    "url": "https://httpbin.org/get",
+    "reason": "User reported phishing",
+    "timestamp": "2025-11-07T07:19:51.538303"
+  },
+  {
+    "url": "https://login-security-verify-account.com/",
+    "reason": "User reported phishing",
+    "timestamp": "2025-11-18T11:23:01.089758"
+  },
+  {
+    "url": "https://amazon-gift-card-free.com/",
+    "reason": "User reported phishing",
+    "timestamp": "2025-11-28T09:43:59.104219"
+  }
+]
