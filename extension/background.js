@@ -212,31 +212,66 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       return response.json();
     })
     .then((data) => {
+      console.log("[PhishGuard] 🔍 RAW Backend Response:", data);
+      
       const prediction = (data?.prediction || "").toLowerCase();
       const probability = data.probability || 0;
 
-      console.log("[PhishGuard] Prediction result:", {
+      console.log("[PhishGuard] 📊 Parsed Prediction:", {
         url: tab.url,
         prediction: prediction,
         probability: probability + "%",
-        isPhishing: prediction === "phishing"
+        isPhishing: prediction === "phishing",
+        willBlock: prediction === "phishing"
       });
 
-      if (prediction === "phishing") {
+      // 🧪 TEST MODE: Force block if probability > 50% OR prediction is "phishing"
+      const shouldBlock = prediction === "phishing" || probability > 50;
+      
+      console.log("[PhishGuard] 🎯 Block Decision:", {
+        prediction: prediction,
+        probability: probability,
+        shouldBlock: shouldBlock
+      });
+
+      if (shouldBlock) {
         // PHISHING DETECTED - Show warning page
         const reason = data.reason || "Suspicious patterns detected";
         const features =
           data.features && typeof data.features === "object" ? data.features : {};
 
-        console.log("[PhishGuard] ⚠️ PHISHING DETECTED - Blocking site");
+        console.log("[PhishGuard] ⚠️ PHISHING DETECTED - BLOCKING SITE NOW!");
+        console.log("[PhishGuard] 🚨 Redirecting to:", simpleWarningUrlPrefix);
 
-        // Store detection data
+        // Store detection data FIRST
+        const detectionData = { 
+          url: tab.url, 
+          reason, 
+          probability, 
+          features,
+          timestamp: new Date().toISOString()
+        };
+        
+        console.log("[PhishGuard] 💾 Saving detection data:", detectionData);
+        
         chrome.storage.local.set(
-          { lastDetection: { url: tab.url, reason, probability, features } },
+          { lastDetection: detectionData },
           () => {
-            console.log("[PhishGuard] Detection data saved, redirecting to warning page");
-            // Redirect to warning page
-            chrome.tabs.update(tabId, { url: simpleWarningUrlPrefix });
+            if (chrome.runtime.lastError) {
+              console.error("[PhishGuard] ❌ Storage error:", chrome.runtime.lastError);
+            } else {
+              console.log("[PhishGuard] ✅ Detection data saved successfully");
+            }
+            
+            // Now redirect to warning page
+            console.log("[PhishGuard] 🔄 Executing redirect to warning page...");
+            chrome.tabs.update(tabId, { url: simpleWarningUrlPrefix }, (updatedTab) => {
+              if (chrome.runtime.lastError) {
+                console.error("[PhishGuard] ❌ Redirect error:", chrome.runtime.lastError);
+              } else {
+                console.log("[PhishGuard] ✅ Redirect successful!", updatedTab);
+              }
+            });
           }
         );
 
