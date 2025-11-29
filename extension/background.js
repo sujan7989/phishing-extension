@@ -177,9 +177,12 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     return;
 
   if (isSafeDomain(tab.url)) {
+    console.log("[PhishGuard] ✅ Whitelisted domain - Skipping check:", tab.url);
     clearBadge(tabId);
     return;
   }
+
+  console.log("[PhishGuard] 🔍 Checking URL:", tab.url);
 
   fetch("https://phishing-extension-6qs8.onrender.com/predict", {
     method: "POST",
