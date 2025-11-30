@@ -167,17 +167,8 @@ function logPhishingDetection(url, reason, probability, features = {}) {
 console.log("🔧 [PhishGuard] Setting up tab listener...");
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  console.log("🔔 [PhishGuard] Tab updated:", tabId, changeInfo.status, tab?.url);
-  
-  if (changeInfo.status !== "complete" || !tab?.url) {
-    console.log("⏭️ [PhishGuard] Skipping - not complete or no URL");
-    return;
-  }
-  
-  if (!/^https?:/i.test(tab.url)) {
-    console.log("⏭️ [PhishGuard] Skipping - not HTTP/HTTPS:", tab.url);
-    return;
-  }
+  if (changeInfo.status !== "complete" || !tab?.url) return;
+  if (!/^https?:/i.test(tab.url)) return;
   
   console.log("📍 [PhishGuard] Analyzing URL:", tab.url);
 
@@ -200,9 +191,9 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     return;
   }
 
-  console.log("[PhishGuard] 🔍 NOT whitelisted - Checking URL:", tab.url);
+  console.log("[PhishGuard] 🔍 Checking URL:", tab.url);
 
-  fetch("https://phishing-extension-6qs8.onrender.com/predict", {
+  fetch("http://localhost:5000/predict", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url: tab.url }),
@@ -212,66 +203,31 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       return response.json();
     })
     .then((data) => {
-      console.log("[PhishGuard] 🔍 RAW Backend Response:", data);
-      
       const prediction = (data?.prediction || "").toLowerCase();
       const probability = data.probability || 0;
 
-      console.log("[PhishGuard] 📊 Parsed Prediction:", {
+      console.log("[PhishGuard] Prediction result:", {
         url: tab.url,
         prediction: prediction,
         probability: probability + "%",
-        isPhishing: prediction === "phishing",
-        willBlock: prediction === "phishing"
+        isPhishing: prediction === "phishing"
       });
 
-      // 🧪 TEST MODE: Force block if probability > 50% OR prediction is "phishing"
-      const shouldBlock = prediction === "phishing" || probability > 50;
-      
-      console.log("[PhishGuard] 🎯 Block Decision:", {
-        prediction: prediction,
-        probability: probability,
-        shouldBlock: shouldBlock
-      });
-
-      if (shouldBlock) {
+      if (prediction === "phishing") {
         // PHISHING DETECTED - Show warning page
         const reason = data.reason || "Suspicious patterns detected";
         const features =
           data.features && typeof data.features === "object" ? data.features : {};
 
-        console.log("[PhishGuard] ⚠️ PHISHING DETECTED - BLOCKING SITE NOW!");
-        console.log("[PhishGuard] 🚨 Redirecting to:", simpleWarningUrlPrefix);
+        console.log("[PhishGuard] ⚠️ PHISHING DETECTED - Blocking site");
 
-        // Store detection data FIRST
-        const detectionData = { 
-          url: tab.url, 
-          reason, 
-          probability, 
-          features,
-          timestamp: new Date().toISOString()
-        };
-        
-        console.log("[PhishGuard] 💾 Saving detection data:", detectionData);
-        
+        // Store detection data
         chrome.storage.local.set(
-          { lastDetection: detectionData },
+          { lastDetection: { url: tab.url, reason, probability, features } },
           () => {
-            if (chrome.runtime.lastError) {
-              console.error("[PhishGuard] ❌ Storage error:", chrome.runtime.lastError);
-            } else {
-              console.log("[PhishGuard] ✅ Detection data saved successfully");
-            }
-            
-            // Now redirect to warning page
-            console.log("[PhishGuard] 🔄 Executing redirect to warning page...");
-            chrome.tabs.update(tabId, { url: simpleWarningUrlPrefix }, (updatedTab) => {
-              if (chrome.runtime.lastError) {
-                console.error("[PhishGuard] ❌ Redirect error:", chrome.runtime.lastError);
-              } else {
-                console.log("[PhishGuard] ✅ Redirect successful!", updatedTab);
-              }
-            });
+            console.log("[PhishGuard] Detection data saved, redirecting to warning page");
+            // Redirect to warning page
+            chrome.tabs.update(tabId, { url: simpleWarningUrlPrefix });
           }
         );
 
@@ -356,7 +312,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
 
         // Send to backend
-        const res = await fetch("https://phishing-extension-6qs8.onrender.com/report", {
+        const res = await fetch("http://localhost:5000/report", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: message.url }),

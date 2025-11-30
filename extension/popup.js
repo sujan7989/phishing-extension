@@ -51,7 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const url = tabs[0].url;
 
-      fetch("https://phishing-extension-6qs8.onrender.com/predict", {
+      fetch("http://localhost:5000/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url })
