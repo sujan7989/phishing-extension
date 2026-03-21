@@ -7,6 +7,9 @@ from datetime import datetime
 from urllib.parse import urlparse
 import tldextract
 
+# Use cached TLD list — avoids network call on Render's read-only filesystem
+_tld_extract = tldextract.TLDExtract(suffix_list_urls=[], cache_dir=None)
+
 app = Flask(__name__)
 
 # ─────────────────────────────────────────────
@@ -108,7 +111,7 @@ _URL_RE  = re.compile(r"^https?://", re.IGNORECASE)
 # ─────────────────────────────────────────────
 
 def get_root_domain(hostname):
-    ext = tldextract.extract(hostname)
+    ext = _tld_extract(hostname)
     return f"{ext.domain}.{ext.suffix}".lower()
 
 
@@ -163,7 +166,7 @@ def detect_phishing(url):
 
     hostname  = (parsed.hostname or "").lower()
     url_lower = url.lower()
-    ext       = tldextract.extract(hostname)
+    ext       = _tld_extract(hostname)
     domain    = ext.domain or ""
     subdomain = ext.subdomain or ""
     suffix    = ext.suffix or ""
