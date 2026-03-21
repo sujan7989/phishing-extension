@@ -162,16 +162,82 @@ function logPhishingDetection(url, reason, probability, features = {}) {
 }
 
 // ==============================
+// Instant Local Pre-Check (runs before API, zero network delay)
+// Mirrors the same signals as backend/app_simple.py
+// ==============================
+const SUSPICIOUS_TLDS = [".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".click", ".loan", ".work", ".date", ".racing", ".win", ".download", ".stream", ".gdn", ".accountant", ".science", ".faith", ".review", ".trade", ".party", ".men", ".bid", ".webcam", ".country", ".kim", ".cricket", ".space", ".ninja", ".link", ".site", ".online", ".tech", ".store", ".fun", ".icu", ".live", ".club", ".vip", ".monster", ".fake"];
+const PHISHING_KEYWORDS = ["verify", "secure", "account", "update", "login", "signin", "banking", "confirm", "password", "credential", "wallet", "alert", "suspended", "unusual", "activity", "validate", "authenticate", "recover", "unlock", "limited"];
+const BRAND_NAMES = ["paypal", "apple", "google", "microsoft", "amazon", "facebook", "instagram", "twitter", "netflix", "bank", "chase", "wellsfargo", "citibank", "ebay", "dropbox", "linkedin", "whatsapp", "telegram"];
+
+function quickLocalCheck(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    const hostname = parsed.hostname.toLowerCase();
+    const fullUrl = rawUrl.toLowerCase();
+    const parts = hostname.split(".");
+    const tld = "." + parts.slice(-1)[0];
+    const domain = parts.slice(-2).join(".");
+    const subdomains = parts.slice(0, -2);
+
+    // 1. IP address URL
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) {
+      return { isPhishing: true, reason: "IP address used as URL", probability: 95 };
+    }
+    // 2. Suspicious TLD
+    if (SUSPICIOUS_TLDS.includes(tld)) {
+      return { isPhishing: true, reason: "Suspicious top-level domain: " + tld, probability: 90 };
+    }
+    // 3. Brand name in subdomain (e.g. paypal.evil.com)
+    if (subdomains.some(s => BRAND_NAMES.some(b => s.includes(b)))) {
+      return { isPhishing: true, reason: "Brand name used in subdomain", probability: 92 };
+    }
+    // 4. Fake domain embed (e.g. paypal.com.evil.com)
+    if (subdomains.join(".").includes(".com") || subdomains.join(".").includes(".net")) {
+      return { isPhishing: true, reason: "Fake domain embedded in subdomain", probability: 93 };
+    }
+    // 5. @ symbol in URL
+    if (fullUrl.includes("@")) {
+      return { isPhishing: true, reason: "@ symbol in URL", probability: 88 };
+    }
+    // 6. No HTTPS
+    if (parsed.protocol !== "https:") {
+      // Only flag if also has other signals — don't block all HTTP
+    }
+    // 7. Phishing keywords in domain
+    const domainPart = hostname.replace(/\./g, "");
+    if (PHISHING_KEYWORDS.some(k => domainPart.includes(k))) {
+      return { isPhishing: true, reason: "Phishing keyword in domain", probability: 85 };
+    }
+    // 8. Excessive hyphens
+    if ((hostname.match(/-/g) || []).length >= 4) {
+      return { isPhishing: true, reason: "Excessive hyphens in domain", probability: 80 };
+    }
+    // 9. Very long URL
+    if (rawUrl.length > 150) {
+      return { isPhishing: true, reason: "Unusually long URL", probability: 75 };
+    }
+    // 10. Encoded characters
+    if ((fullUrl.match(/%[0-9a-f]{2}/g) || []).length > 3) {
+      return { isPhishing: true, reason: "Excessive URL encoding", probability: 82 };
+    }
+  } catch {
+    return { isPhishing: false };
+  }
+  return { isPhishing: false };
+}
+
+// ==============================
 // URL Checking Logic
 // ==============================
 console.log("🔧 [PhishGuard] Setting up tab listener...");
+
+// Track tabs already redirected to avoid double-redirect loops
+const redirectedTabs = new Set();
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   // Intercept at "loading" to redirect before page content is shown
   if (changeInfo.status !== "loading" || !tab?.url) return;
   if (!/^https?:/i.test(tab.url)) return;
-  
-  console.log("📍 [PhishGuard] Analyzing URL:", tab.url);
 
   const warningUrlPrefix = chrome.runtime.getURL("warning.html");
   const simpleWarningUrlPrefix = chrome.runtime.getURL("simple_warning.html");
@@ -183,83 +249,108 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     tab.url.startsWith(simpleWarningUrlPrefix) ||
     tab.url.startsWith(detailsUrlPrefix) ||
     tab.url.startsWith(dashboardUrlPrefix)
-  )
+  ) {
+    redirectedTabs.delete(tabId); // clean up when warning page loads
     return;
+  }
+
+  // Avoid re-checking a tab we already redirected
+  if (redirectedTabs.has(tabId)) {
+    redirectedTabs.delete(tabId);
+    return;
+  }
 
   if (isSafeDomain(tab.url)) {
-    console.log("[PhishGuard] ✅ Whitelisted domain - Skipping check:", tab.url);
     clearBadge(tabId);
     return;
   }
 
-  console.log("[PhishGuard] 🔍 Checking URL:", tab.url);
+  // ── STEP 1: Instant local check — redirect immediately if obviously phishing ──
+  const localResult = quickLocalCheck(tab.url);
+  if (localResult.isPhishing) {
+    console.log("[PhishGuard] ⚡ LOCAL CHECK: Phishing detected instantly:", tab.url);
+    const detectionData = {
+      url: tab.url,
+      reason: localResult.reason,
+      probability: localResult.probability,
+      features: {},
+    };
+    redirectedTabs.add(tabId);
+    chrome.storage.local.set({ lastDetection: detectionData }, () => {
+      chrome.tabs.update(tabId, { url: simpleWarningUrlPrefix });
+    });
+    setPhishingBadge(tabId);
 
-  // Try deployed API first, fall back to localhost for development
-  const API_URLS = [
-    "https://phishing-extension-tib4.onrender.com/predict",
-    "http://127.0.0.1:5000/predict",
-    "http://localhost:5000/predict",
-  ];
-
-  async function fetchWithFallback(urls, body) {
-    for (const url of urls) {
-      try {
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(8000),
+    // Still call API in background to get full features (for details page)
+    fetchWithFallback(
+      ["https://phishing-extension-tib4.onrender.com/predict", "http://127.0.0.1:5000/predict"],
+      { url: tab.url }
+    ).then((data) => {
+      if (data?.prediction?.toLowerCase() === "phishing") {
+        logPhishingDetection(tab.url, data.reason || localResult.reason, data.probability || localResult.probability, data.features || {});
+        // Update storage with richer data from API
+        chrome.storage.local.set({
+          lastDetection: {
+            url: tab.url,
+            reason: data.reason || localResult.reason,
+            probability: data.probability || localResult.probability,
+            features: data.features || {},
+          }
         });
-        if (res.ok) return res.json();
-      } catch (_) { /* try next */ }
-    }
-    throw new Error("All API endpoints unreachable");
+      }
+    }).catch(() => {
+      // API offline — log with local data
+      logPhishingDetection(tab.url, localResult.reason, localResult.probability, {});
+    });
+    return;
   }
 
-  fetchWithFallback(API_URLS, { url: tab.url })
-    .then((data) => data)
-    .then((data) => {
-      const prediction = (data?.prediction || "").toLowerCase();
+  // ── STEP 2: Not obviously phishing — ask API ──
+  console.log("[PhishGuard] 🔍 Sending to API:", tab.url);
+
+  fetchWithFallback(
+    ["https://phishing-extension-tib4.onrender.com/predict", "http://127.0.0.1:5000/predict", "http://localhost:5000/predict"],
+    { url: tab.url }
+  ).then((data) => {
+    const prediction = (data?.prediction || "").toLowerCase();
+
+    if (prediction === "phishing") {
+      const reason = data.reason || "Suspicious patterns detected";
       const probability = data.probability || 0;
+      const features = data.features && typeof data.features === "object" ? data.features : {};
 
-      console.log("[PhishGuard] Prediction result:", {
-        url: tab.url,
-        prediction: prediction,
-        probability: probability + "%",
-        isPhishing: prediction === "phishing"
+      console.log("[PhishGuard] ⚠️ API: PHISHING DETECTED:", tab.url);
+      redirectedTabs.add(tabId);
+      const detectionData = { url: tab.url, reason, probability, features };
+      chrome.storage.local.set({ lastDetection: detectionData }, () => {
+        chrome.tabs.update(tabId, { url: simpleWarningUrlPrefix });
       });
-
-      if (prediction === "phishing") {
-        const reason = data.reason || "Suspicious patterns detected";
-        const probability = data.probability || 0;
-        const features = data.features && typeof data.features === "object" ? data.features : {};
-
-        console.log("[PhishGuard] ⚠️ PHISHING DETECTED:", tab.url);
-
-        // CRITICAL: store data FIRST, then redirect (fixes race condition)
-        const detectionData = { url: tab.url, reason, probability, features };
-        chrome.storage.local.set({ lastDetection: detectionData }, () => {
-          chrome.tabs.update(tabId, { url: simpleWarningUrlPrefix });
-        });
-
-        logPhishingDetection(tab.url, reason, probability, features);
-        setPhishingBadge(tabId);
-      } else if (prediction === "legitimate") {
-        // LEGITIMATE - Allow access
-        console.log("[PhishGuard] ✅ LEGITIMATE - Allowing access");
-        clearBadge(tabId);
-      } else {
-        // Unknown prediction - Allow access but log warning
-        console.warn("[PhishGuard] ⚠️ Unknown prediction:", prediction, "- Allowing access");
-        clearBadge(tabId);
-      }
-    })
-    .catch((err) => {
-      console.error("[PhishGuard] Backend error:", err.message);
-      // Don't block sites when backend is offline - just clear badge
+      logPhishingDetection(tab.url, reason, probability, features);
+      setPhishingBadge(tabId);
+    } else {
+      console.log("[PhishGuard] ✅ API: LEGITIMATE - Allowing access");
       clearBadge(tabId);
-    });
+    }
+  }).catch((err) => {
+    console.error("[PhishGuard] Backend error:", err.message);
+    clearBadge(tabId);
+  });
 });
+
+async function fetchWithFallback(urls, body) {
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(8000),
+      });
+      if (res.ok) return res.json();
+    } catch (_) { /* try next */ }
+  }
+  throw new Error("All API endpoints unreachable");
+}
 
 // ==============================
 // Messages from pages
