@@ -167,7 +167,8 @@ function logPhishingDetection(url, reason, probability, features = {}) {
 console.log("🔧 [PhishGuard] Setting up tab listener...");
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.status !== "complete" || !tab?.url) return;
+  // Intercept at "loading" to redirect before page content is shown
+  if (changeInfo.status !== "loading" || !tab?.url) return;
   if (!/^https?:/i.test(tab.url)) return;
   
   console.log("📍 [PhishGuard] Analyzing URL:", tab.url);
@@ -207,7 +208,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(5000),
+          signal: AbortSignal.timeout(8000),
         });
         if (res.ok) return res.json();
       } catch (_) { /* try next */ }
