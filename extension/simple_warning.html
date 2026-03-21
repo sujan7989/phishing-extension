@@ -2,108 +2,193 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>⚠️ Warning: Potential Phishing Site</title>
-  <link rel="stylesheet" href="style.css">
+  <title>🛡️ PhishGuard — Threat Blocked</title>
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: Arial, sans-serif;
-      background-color: #b71c1c; /* Strong red background */
-      color: #fff;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(135deg, #b71c1c, #e53935);
+      min-height: 100vh;
       display: flex;
-      flex-direction: column;
       justify-content: center;
       align-items: center;
-      height: 100vh;
-      margin: 0;
-      text-align: center;
+      padding: 20px;
     }
 
     .card {
       background: #fff;
-      color: #000;
-      border-radius: 14px;
-      padding: 35px;
-      max-width: 480px;
-      width: 90%;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+      border-radius: 16px;
+      padding: 36px 32px;
+      max-width: 520px;
+      width: 100%;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+      animation: slideUp 0.5s ease-out;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .shield {
       text-align: center;
-      animation: fadeIn 0.6s ease-in-out;
+      font-size: 56px;
+      margin-bottom: 10px;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%   { transform: scale(1);    filter: drop-shadow(0 0 0px #e53935); }
+      50%  { transform: scale(1.12); filter: drop-shadow(0 0 14px #e53935); }
+      100% { transform: scale(1);    filter: drop-shadow(0 0 0px #e53935); }
+    }
+
+    .countdown {
+      text-align: center;
+      font-size: 13px;
+      color: #c62828;
+      font-weight: 600;
+      margin-bottom: 16px;
+      letter-spacing: 0.3px;
     }
 
     h1 {
-      font-size: 24px;
-      margin-bottom: 18px;
-      color: #d32f2f;
+      text-align: center;
+      font-size: 22px;
+      color: #c62828;
+      margin-bottom: 6px;
     }
 
-    p {
-      font-size: 16px;
-      margin-bottom: 28px;
-      color: #444;
-      line-height: 1.5;
+    .subtitle {
+      text-align: center;
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 24px;
+    }
+
+    .info-block {
+      background: #fff8f8;
+      border-left: 4px solid #e53935;
+      border-radius: 6px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      word-break: break-all;
+    }
+
+    .info-block .label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .info-block .value {
+      font-size: 14px;
+      color: #222;
+      font-weight: 500;
+    }
+
+    .risk-bar-wrap {
+      background: #eee;
+      border-radius: 8px;
+      height: 10px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .risk-bar {
+      height: 100%;
+      border-radius: 8px;
+      transition: width 0.8s ease;
+      background: #e53935;
+    }
+
+    .risk-label {
+      font-size: 12px;
+      color: #e53935;
+      font-weight: 700;
+      margin-top: 4px;
+      text-align: right;
     }
 
     .buttons {
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 10px;
+      margin-top: 24px;
     }
 
     button {
       padding: 13px;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       font-size: 15px;
-      font-weight: bold;
+      font-weight: 600;
       cursor: pointer;
-      transition: all 0.25s ease-in-out;
+      transition: transform 0.15s ease, opacity 0.15s ease;
     }
 
-    .back {
-      background-color: #d32f2f;
-      color: #fff;
-    }
-    .back:hover {
-      background-color: #b71c1c;
+    button:hover { opacity: 0.88; transform: scale(1.02); }
+
+    .btn-back      { background: #c62828; color: #fff; }
+    .btn-details   { background: #1565c0; color: #fff; }
+    .btn-dashboard { background: #2e7d32; color: #fff; }
+    .btn-trust     { background: #6a1b9a; color: #fff; }
+    .btn-report    { background: #f9a825; color: #000; }
+
+    .footer-note {
+      text-align: center;
+      font-size: 12px;
+      color: #aaa;
+      margin-top: 18px;
     }
 
-    .details {
-      background-color: #1976d2;
-      color: #fff;
-    }
-    .details:hover {
-      background-color: #0d47a1;
-    }
-
-    .report {
-      background-color: #fbc02d;
-      color: #000;
-    }
-    .report:hover {
-      background-color: #f9a825;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-20px); }
-      to { opacity: 1; transform: translateY(0); }
+    @media (max-width: 480px) {
+      .card { padding: 24px 18px; }
+      h1 { font-size: 19px; }
     }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>⚠️ Suspicious Website Detected</h1>
-    <p>
-      This site may be trying to steal your information.<br>
-      It is strongly recommended that you go back.
-    </p>
-    <div class="buttons">
-      <button id="goBackSimple" class="back" aria-label="Go back to safety">⬅ Go Back</button>
-      <button id="detailsBtn" class="details" aria-label="View more details">📊 More Details</button>
-      <button id="reportBtn" class="report" aria-label="Report this site">🚨 Report This Site</button>
+    <div class="shield">🛡️</div>
+    <h1>Phishing Site Detected</h1>
+    <p class="subtitle">PhishGuard blocked this site to protect you.</p>
+    <p class="countdown" id="countdown">Closing tab in 15 seconds...</p>
+
+    <div class="info-block">
+      <div class="label">Blocked URL</div>
+      <div class="value" id="blockedUrl">Loading...</div>
+      <button id="copyUrlBtn" style="margin-top:8px;padding:5px 12px;font-size:12px;border:none;border-radius:6px;background:#e0e0e0;color:#333;cursor:pointer;font-weight:600;">📋 Copy URL</button>
     </div>
+
+    <div class="info-block">
+      <div class="label">Reason</div>
+      <div class="value" id="reasonText">Analyzing...</div>
+    </div>
+
+    <div class="info-block">
+      <div class="label">Risk Score</div>
+      <div class="risk-bar-wrap">
+        <div class="risk-bar" id="riskBar" style="width:0%"></div>
+      </div>
+      <div class="risk-label" id="riskLabel">0%</div>
+    </div>
+
+    <div class="buttons">
+      <button id="goBackBtn"    class="btn-back">⬅ Go Back to Safety</button>
+      <button id="detailsBtn"   class="btn-details">🤖 View AI Analysis</button>
+      <button id="dashboardBtn" class="btn-dashboard">📊 Open Dashboard</button>
+      <button id="trustBtn"     class="btn-trust">✅ Trust This Site</button>
+      <button id="reportBtn"    class="btn-report">🚨 Report This Site</button>
+    </div>
+
+    <p class="footer-note">Powered by PhishGuard AI · Stay safe online</p>
   </div>
 
-  <!-- External JS (MV3 compliant) -->
   <script src="simple_warning.js" defer></script>
 </body>
 </html>

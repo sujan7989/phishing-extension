@@ -31,8 +31,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const key = (entry.prediction || entry.reason || "").toLowerCase();
       if (counts[key] !== undefined) counts[key]++;
     });
-    totalCountEl.textContent = history.length;
-    phishingCountEl.textContent = counts.phishing;
+    // Total = phishing detected + legitimate scanned
+    chrome.storage.local.get({ totalScanned: 0 }, (res) => {
+      const total = history.length + (res.totalScanned || 0);
+      totalCountEl.textContent = total;
+    });
+    phishingCountEl.textContent = counts.phishing || history.length;
     suspiciousCountEl.textContent = counts.suspicious;
     safeCountEl.textContent = counts.safe;
   }
@@ -141,9 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("click",(e)=>{if(e.target===featuresModal)featuresModal.style.display="none";});
   window.addEventListener("keydown",(e)=>{if(e.key==="Escape"&&featuresModal.style.display==="block"){featuresModal.style.display="none";}});
 
-  backBtn?.addEventListener("click",()=>{
-    chrome.storage.local.get(["lastPage"],(result)=>{const lastPage=result.lastPage; window.location.href=(lastPage==="warning"?"warning.html":"popup.html");});
-  });
+  backBtn?.addEventListener("click",()=>{ window.history.back(); });
 
   // ================= Dark Mode Toggle =================
   if(darkToggle){

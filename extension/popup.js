@@ -1,107 +1,149 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const resultDiv = document.getElementById("result");
-  const dashboardBtn = document.getElementById("openDashboard");
-  const reportBtn = document.getElementById("reportBtn");
+  const resultDiv    = document.getElementById("result");
+  const dashBtn      = document.getElementById("openDashboard");
+  const reportBtn    = document.getElementById("reportBtn");
+  const scanInput    = document.getElementById("scanInput");
+  const scanBtn      = document.getElementById("scanBtn");
+  const scanResult   = document.getElementById("scanResult");
+  const statBlocked  = document.getElementById("statBlocked");
+  const statWeek     = document.getElementById("statWeek");
+  const statToday    = document.getElementById("statToday");
 
-  // ===============================
-  // Handle Open Dashboard button
-  // ===============================
-  if (dashboardBtn) {
-    dashboardBtn.addEventListener("click", () => {
-      console.log("[PhishGuard] 📊 Open Dashboard button clicked.");
-      chrome.storage.local.set({ lastPage: "popup" }, () => {
-        chrome.runtime.sendMessage({ action: "openDashboard" });
-      });
+  const API_URLS = [
+    "https://phishing-extension-tib4.onrender.com/predict",
+    "http://127.0.0.1:5000/predict",
+    "http://localhost:5000/predict",
+  ];
+
+  async function fetchPredict(url) {
+    for (const api of API_URLS) {
+      try {
+        const res = await fetch(api, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+          signal: AbortSignal.timeout(8000),
+        });
+        if (res.ok) return res.json();
+      } catch (_) { /* try next */ }
+    }
+    throw new Error("All API endpoints unreachable");
+  }
+
+  // ── Online / offline indicator ───────────────────────────
+  const statusEl = document.getElementById("onlineStatus");
+  chrome.storage.local.get(["backendOnline"], (res) => {
+    if (statusEl) {
+      const online = res.backendOnline !== false;
+      statusEl.textContent  = online ? "🟢 Online" : "🔴 Local mode";
+      statusEl.style.color  = online ? "#a5d6a7" : "#ffcc80";
+    }
+  });
+
+  // ── Load stats from history ──────────────────────────────
+  chrome.storage.local.get(["phishingHistory"], (res) => {
+    const history = Array.isArray(res.phishingHistory) ? res.phishingHistory : [];
+    const now     = new Date();
+    const todayStr = now.toDateString();
+    const weekAgo  = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+    const total   = history.length;
+    const today   = history.filter(h => h.time && new Date(h.time).toDateString() === todayStr).length;
+    const week    = history.filter(h => h.time && new Date(h.time) >= weekAgo).length;
+
+    if (statBlocked) statBlocked.textContent = total;
+    if (statWeek)    statWeek.textContent    = week;
+    if (statToday)   statToday.textContent   = today;
+  });
+
+  // ── Current tab prediction ───────────────────────────────
+  chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+    if (!tabs?.[0]?.url) {
+      resultDiv.textContent = "No active tab found.";
+      return;
+    }
+    const url = tabs[0].url;
+
+    if (url.startsWith("chrome://") || url.startsWith("chrome-extension://")) {
+      resultDiv.className = "result-box safe";
+      resultDiv.innerHTML = "✅ Internal page — no check needed.";
+      return;
+    }
+
+    resultDiv.className = "result-box";
+    resultDiv.innerHTML = "🔍 Analyzing current page...";
+
+    try {
+      const data       = await fetchPredict(url);
+      const prediction = (data.prediction || "unknown").toLowerCase();
+      const prob       = parseFloat(data.probability) || 0;
+      const icon       = prediction === "phishing" ? "🚨" : prediction === "suspicious" ? "⚠️" : "✅";
+
+      resultDiv.className = "result-box " + (
+        prediction === "phishing" ? "phishing" :
+        prediction === "suspicious" ? "suspicious" : "safe"
+      );
+      resultDiv.innerHTML =
+        `<strong>${icon} ${prediction.charAt(0).toUpperCase() + prediction.slice(1)}</strong><br>` +
+        `Risk Score: ${prob.toFixed(1)}%`;
+    } catch {
+      resultDiv.className = "result-box safe";
+      resultDiv.innerHTML = "⚡ Running in local mode — still protected.";
+    }
+  });
+
+  // ── Manual URL scan ──────────────────────────────────────
+  async function runManualScan() {
+    let url = (scanInput.value || "").trim();
+    if (!url) return;
+    if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+
+    scanResult.className = "scan-result checking";
+    scanResult.textContent = "🔍 Scanning...";
+    scanBtn.disabled = true;
+
+    try {
+      const data       = await fetchPredict(url);
+      const prediction = (data.prediction || "unknown").toLowerCase();
+      const prob       = parseFloat(data.probability) || 0;
+      const icon       = prediction === "phishing" ? "🚨" : "✅";
+
+      scanResult.className = "scan-result " + (prediction === "phishing" ? "phishing" : "safe");
+      scanResult.innerHTML =
+        `<strong>${icon} ${prediction.charAt(0).toUpperCase() + prediction.slice(1)}</strong> — ${prob.toFixed(1)}% risk`;
+    } catch {
+      scanResult.className = "scan-result checking";
+      scanResult.textContent = "⚡ Local mode — backend unreachable. Try again shortly.";
+    }
+    scanBtn.disabled = false;
+  }
+
+  if (scanBtn)   scanBtn.addEventListener("click", runManualScan);
+  if (scanInput) scanInput.addEventListener("keydown", (e) => { if (e.key === "Enter") runManualScan(); });
+
+  // ── Dashboard ────────────────────────────────────────────
+  if (dashBtn) {
+    dashBtn.addEventListener("click", async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.id) {
+        chrome.tabs.update(tab.id, { url: chrome.runtime.getURL("dashboard.html") });
+      }
+      window.close();
     });
   }
 
-  // ===============================
-  // Handle Report button
-  // ===============================
+  // ── Report ───────────────────────────────────────────────
   if (reportBtn) {
     reportBtn.addEventListener("click", async () => {
-      try {
-        let [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (!tab || !tab.url) {
-          alert("No active tab URL found.");
-          return;
-        }
-
-        chrome.runtime.sendMessage({
-          action: "reportSite",
-          url: tab.url
-        });
-
-        alert("🚨 Report submitted for: " + tab.url);
-      } catch (err) {
-        console.error("[PhishGuard] Report button error:", err);
-      }
-    });
-  }
-
-  // ===============================
-  // Run phishing prediction
-  // ===============================
-  if (resultDiv) {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (!tabs || !tabs[0]) {
-        resultDiv.textContent = "No active tab found.";
-        return;
-      }
-
-      const url = tabs[0].url;
-
-      fetch("http://localhost:5000/predict", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url })
-      })
-        .then(response => {
-          if (!response.ok) throw new Error("Server returned " + response.status);
-          return response.json();
-        })
-        .then(data => {
-          const prediction = (data.prediction || "Unknown").toString();
-          const probability = data.probability ? parseFloat(data.probability) : null;
-
-          // Reset result box class
-          resultDiv.className = "result-box";
-
-          if (probability !== null && !isNaN(probability)) {
-            const percentage = probability.toFixed(1);
-
-            // 🟢 Clean formatted UI
-            resultDiv.innerHTML = `
-              <p><b>Status:</b> ${prediction}</p>
-              <p><b>Risk Probability:</b> ${percentage}%</p>
-            `;
-
-            // Color coding
-            if (prediction.toLowerCase() === "phishing") {
-              resultDiv.classList.add("phishing");
-            } else if (prediction.toLowerCase() === "suspicious") {
-              resultDiv.classList.add("suspicious");
-            } else {
-              resultDiv.classList.add("safe");
-            }
-          } else {
-            // No probability available, just show prediction
-            resultDiv.innerHTML = `<p><b>Status:</b> ${prediction}</p>`;
-            
-            if (prediction.toLowerCase() === "phishing") {
-              resultDiv.classList.add("phishing");
-            } else if (prediction.toLowerCase() === "suspicious") {
-              resultDiv.classList.add("suspicious");
-            } else {
-              resultDiv.classList.add("safe");
-            }
-          }
-        })
-        .catch(err => {
-          console.error("[PhishGuard] ❌ Prediction error:", err);
-          resultDiv.innerHTML = `<p>⚠️ Backend offline. Start server: python backend/app.py</p>`;
-          resultDiv.className = "result-box suspicious";
-        });
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab?.url) { alert("No active tab URL found."); return; }
+      chrome.runtime.sendMessage({ action: "reportSite", url: tab.url });
+      reportBtn.textContent = "✅ Reported!";
+      reportBtn.disabled = true;
+      setTimeout(() => {
+        reportBtn.textContent = "🚨 Report This Site";
+        reportBtn.disabled = false;
+      }, 2000);
     });
   }
 });

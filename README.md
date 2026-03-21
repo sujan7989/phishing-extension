@@ -1,6 +1,12 @@
 # 🛡️ PhishGuard — AI-Powered Phishing Detection Chrome Extension
 
-![PhishGuard](extension/icons/icon128.png)
+> Real-time phishing protection for Chrome. Blocks malicious sites instantly before they load.
+
+![Warning Page](https://raw.githubusercontent.com/sujan7989/phishing-extension/main/extension/icons/icon128.png)
+
+| Popup | Warning Page | AI Analysis | Dashboard |
+|-------|-------------|-------------|-----------|
+| Scans current tab instantly | Blocks phishing with risk score | Full AI feature breakdown | History, charts, CSV export |
 
 PhishGuard is a Chrome extension that detects phishing and malicious URLs in real time using a multi-signal detection engine. When you visit a suspicious site, it intercepts the navigation and shows a warning page before any harm is done.
 

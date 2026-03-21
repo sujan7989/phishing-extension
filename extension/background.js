@@ -4,6 +4,28 @@
 console.log("🚀 [PhishGuard] Extension loaded and running!");
 
 // ==============================
+// Keep Render backend warm — ping every 14 minutes
+// Prevents cold start delays on free tier
+// ==============================
+const RENDER_URL = "https://phishing-extension-tib4.onrender.com";
+
+function pingBackend() {
+  fetch(RENDER_URL + "/", { method: "GET", signal: AbortSignal.timeout(10000) })
+    .then(() => {
+      console.log("[PhishGuard] 🏓 Keep-alive ping sent");
+      chrome.storage.local.set({ backendOnline: true });
+    })
+    .catch(() => {
+      console.warn("[PhishGuard] ⚠️ Backend offline (keep-alive failed)");
+      chrome.storage.local.set({ backendOnline: false });
+    });
+}
+
+// Ping immediately on load, then every 14 minutes
+pingBackend();
+setInterval(pingBackend, 14 * 60 * 1000);
+
+// ==============================
 // Safe Chrome API Wrapper
 // Handles both callback and promise APIs correctly
 // ==============================
@@ -44,19 +66,31 @@ const ICONS = {
 };
 
 // ==============================
-// Safe Domains
+// Safe Domains (built-in whitelist)
 // ==============================
 const SAFE_DOMAINS = ["google.com", "chatgpt.com", "openai.com", "github.com"];
 
 function isSafeDomain(url) {
   try {
     const { hostname } = new URL(url);
-    return SAFE_DOMAINS.some(
-      (domain) => hostname === domain || hostname.endsWith("." + domain)
-    );
+    // Check built-in whitelist
+    if (SAFE_DOMAINS.some(d => hostname === d || hostname.endsWith("." + d))) return true;
+    return false;
   } catch {
     return false;
   }
+}
+
+// Check user's trusted domains from storage (async)
+async function isUserTrusted(url) {
+  return new Promise((resolve) => {
+    try {
+      const hostname = new URL(url).hostname;
+      chrome.storage.local.get({ trustedDomains: [] }, (res) => {
+        resolve((res.trustedDomains || []).includes(hostname));
+      });
+    } catch { resolve(false); }
+  });
 }
 
 // ==============================
@@ -162,7 +196,23 @@ function logPhishingDetection(url, reason, probability, features = {}) {
 }
 
 // ==============================
-// Instant Local Pre-Check (runs before API, zero network delay)
+// OS Notification on phishing block
+// ==============================
+function showPhishingNotification(url) {
+  try {
+    let displayUrl = url;
+    try { displayUrl = new URL(url).hostname; } catch (_) {}
+    chrome.notifications.create("phishguard_block_" + Date.now(), {
+      type: "basic",
+      iconUrl: "icons/icon48.png",
+      title: "🛡️ PhishGuard Blocked a Threat",
+      message: "Phishing site blocked: " + displayUrl,
+      priority: 2,
+    });
+  } catch (err) {
+    console.warn("[PhishGuard] Notification error:", err.message);
+  }
+}
 // Mirrors the same signals as backend/app_simple.py
 // ==============================
 const SUSPICIOUS_TLDS = [".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".click", ".loan", ".work", ".date", ".racing", ".win", ".download", ".stream", ".gdn", ".accountant", ".science", ".faith", ".review", ".trade", ".party", ".men", ".bid", ".webcam", ".country", ".kim", ".cricket", ".space", ".ninja", ".link", ".site", ".online", ".tech", ".store", ".fun", ".icu", ".live", ".club", ".vip", ".monster", ".fake"];
@@ -265,33 +315,54 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     return;
   }
 
-  // ── STEP 1: Instant local check — redirect immediately if obviously phishing ──
-  const localResult = quickLocalCheck(tab.url);
+  // Check user's personal trusted list — also skip local check for trusted domains
+  isUserTrusted(tab.url).then((trusted) => {
+    if (trusted) {
+      console.log("[PhishGuard] ✅ User-trusted domain — skipping:", tab.url);
+      clearBadge(tabId);
+      return;
+    }
+    runDetection(tabId, tab.url, simpleWarningUrlPrefix);
+  });
+});
+
+function runDetection(tabId, tabUrl, simpleWarningUrlPrefix) {
+  // ── STEP 1: Instant local check ──
+  // Re-check trusted domains synchronously before local signals fire
+  chrome.storage.local.get({ trustedDomains: [] }, (res) => {
+    try {
+      const hostname = new URL(tabUrl).hostname;
+      if ((res.trustedDomains || []).includes(hostname)) {
+        clearBadge(tabId);
+        return;
+      }
+    } catch (_) {}
+    _runDetectionCore(tabId, tabUrl, simpleWarningUrlPrefix);
+  });
+}
+
+function _runDetectionCore(tabId, tabUrl, simpleWarningUrlPrefix) {
+  // ── STEP 1: Instant local check ──
+  const localResult = quickLocalCheck(tabUrl);
   if (localResult.isPhishing) {
-    console.log("[PhishGuard] ⚡ LOCAL CHECK: Phishing detected instantly:", tab.url);
-    const detectionData = {
-      url: tab.url,
-      reason: localResult.reason,
-      probability: localResult.probability,
-      features: {},
-    };
+    console.log("[PhishGuard] ⚡ LOCAL CHECK: Phishing detected instantly:", tabUrl);
+    const detectionData = { url: tabUrl, reason: localResult.reason, probability: localResult.probability, features: {} };
     redirectedTabs.add(tabId);
     chrome.storage.local.set({ lastDetection: detectionData }, () => {
       chrome.tabs.update(tabId, { url: simpleWarningUrlPrefix });
     });
     setPhishingBadge(tabId);
+    showPhishingNotification(tabUrl);
 
-    // Still call API in background to get full features (for details page)
     fetchWithFallback(
-      ["https://phishing-extension-tib4.onrender.com/predict", "http://127.0.0.1:5000/predict"],
-      { url: tab.url }
+      [RENDER_URL + "/predict", "http://127.0.0.1:5000/predict"],
+      { url: tabUrl }
     ).then((data) => {
       if (data?.prediction?.toLowerCase() === "phishing") {
-        logPhishingDetection(tab.url, data.reason || localResult.reason, data.probability || localResult.probability, data.features || {});
-        // Update storage with richer data from API
+        logPhishingDetection(tabUrl, data.reason || localResult.reason, data.probability || localResult.probability, data.features || {});
         chrome.storage.local.set({
           lastDetection: {
-            url: tab.url,
+            url: tabUrl,
             reason: data.reason || localResult.reason,
             probability: data.probability || localResult.probability,
             features: data.features || {},
@@ -299,43 +370,43 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         });
       }
     }).catch(() => {
-      // API offline — log with local data
-      logPhishingDetection(tab.url, localResult.reason, localResult.probability, {});
+      logPhishingDetection(tabUrl, localResult.reason, localResult.probability, {});
     });
     return;
   }
 
-  // ── STEP 2: Not obviously phishing — ask API ──
-  console.log("[PhishGuard] 🔍 Sending to API:", tab.url);
-
+  // ── STEP 2: Ask API ──
+  console.log("[PhishGuard] 🔍 Sending to API:", tabUrl);
   fetchWithFallback(
-    ["https://phishing-extension-tib4.onrender.com/predict", "http://127.0.0.1:5000/predict", "http://localhost:5000/predict"],
-    { url: tab.url }
+    [RENDER_URL + "/predict", "http://127.0.0.1:5000/predict", "http://localhost:5000/predict"],
+    { url: tabUrl }
   ).then((data) => {
     const prediction = (data?.prediction || "").toLowerCase();
-
     if (prediction === "phishing") {
-      const reason = data.reason || "Suspicious patterns detected";
+      const reason      = data.reason || "Suspicious patterns detected";
       const probability = data.probability || 0;
-      const features = data.features && typeof data.features === "object" ? data.features : {};
-
-      console.log("[PhishGuard] ⚠️ API: PHISHING DETECTED:", tab.url);
+      const features    = data.features && typeof data.features === "object" ? data.features : {};
+      console.log("[PhishGuard] ⚠️ API: PHISHING DETECTED:", tabUrl);
       redirectedTabs.add(tabId);
-      const detectionData = { url: tab.url, reason, probability, features };
-      chrome.storage.local.set({ lastDetection: detectionData }, () => {
+      chrome.storage.local.set({ lastDetection: { url: tabUrl, reason, probability, features } }, () => {
         chrome.tabs.update(tabId, { url: simpleWarningUrlPrefix });
       });
-      logPhishingDetection(tab.url, reason, probability, features);
+      logPhishingDetection(tabUrl, reason, probability, features);
       setPhishingBadge(tabId);
+      showPhishingNotification(tabUrl);
     } else {
-      console.log("[PhishGuard] ✅ API: LEGITIMATE - Allowing access");
+      console.log("[PhishGuard] ✅ API: LEGITIMATE");
+      // Track total scans including legitimate
+      chrome.storage.local.get({ totalScanned: 0 }, (r) => {
+        chrome.storage.local.set({ totalScanned: r.totalScanned + 1 });
+      });
       clearBadge(tabId);
     }
   }).catch((err) => {
     console.error("[PhishGuard] Backend error:", err.message);
     clearBadge(tabId);
   });
-});
+}
 
 async function fetchWithFallback(urls, body) {
   for (const url of urls) {
@@ -363,30 +434,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.action === "openDetails") {
-    safeChromeAction(
-      chrome.tabs.create,
-      { url: chrome.runtime.getURL("details.html") },
-      "openDetails"
-    );
+    const detailsUrl = chrome.runtime.getURL("details.html");
+    if (sender.tab?.id) {
+      chrome.tabs.update(sender.tab.id, { url: detailsUrl });
+    } else {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]?.id) chrome.tabs.update(tabs[0].id, { url: detailsUrl });
+      });
+    }
   }
 
   if (message.action === "openDashboard") {
     const dashboardUrl = chrome.runtime.getURL("dashboard.html");
-    chrome.tabs.query({}, (tabs) => {
-      const existingTab = tabs.find(
-        (t) => t.url && t.url.startsWith(dashboardUrl)
-      );
-      if (existingTab) {
-        chrome.tabs.update(existingTab.id, { active: true });
-        chrome.windows.update(existingTab.windowId, { focused: true });
-      } else {
-        safeChromeAction(
-          chrome.tabs.create,
-          { url: dashboardUrl },
-          "openDashboard"
-        );
-      }
-    });
+    // Navigate in the sender's tab (same tab), not a new tab
+    if (sender.tab?.id) {
+      chrome.tabs.update(sender.tab.id, { url: dashboardUrl });
+    } else {
+      // Fallback: from popup, find active tab and navigate it
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]?.id) {
+          chrome.tabs.update(tabs[0].id, { url: dashboardUrl });
+        }
+      });
+    }
   }
 
   // ==============================

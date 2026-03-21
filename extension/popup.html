@@ -2,88 +2,181 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>PhishGuard - Popup</title>
-  <link rel="stylesheet" href="style.css">
+  <title>PhishGuard</title>
   <style>
-    body.popup {
-      font-family: Arial, sans-serif;
-      padding: 15px;
-      width: 260px;
-      background: #fdfdfd;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      width: 300px;
+      background: #f5f7ff;
+      color: #222;
     }
-    h3 {
-      margin: 0 0 12px;
-      font-size: 18px;
-      color: #004080;
+
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, #1a237e, #1565c0);
+      color: #fff;
+      padding: 14px 16px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header .logo { font-size: 26px; }
+    .header h1 { font-size: 17px; font-weight: 700; letter-spacing: 0.3px; }
+    .header p  { font-size: 11px; opacity: 0.8; margin-top: 1px; }
+
+    /* Stats row */
+    .stats-row {
+      display: flex;
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .stat {
+      flex: 1;
       text-align: center;
+      padding: 10px 4px;
+      border-right: 1px solid #e0e0e0;
     }
+    .stat:last-child { border-right: none; }
+    .stat .num { font-size: 20px; font-weight: 700; color: #1a237e; }
+    .stat .lbl { font-size: 10px; color: #888; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.3px; }
+    .stat.danger .num { color: #c62828; }
+    .stat.safe-s .num  { color: #2e7d32; }
+
+    /* Current site result */
+    .section { padding: 12px 14px; }
+
     .result-box {
-      padding: 12px;
+      padding: 11px 13px;
       border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.6;
+      border: 1px solid #ddd;
       background: #fafafa;
+      transition: background 0.3s;
+    }
+    .result-box.safe     { background: #e8f5e9; border-color: #a5d6a7; color: #1b5e20; }
+    .result-box.phishing { background: #ffebee; border-color: #ef9a9a; color: #b71c1c; }
+    .result-box.suspicious { background: #fff8e1; border-color: #ffe082; color: #e65100; }
+
+    /* Manual scan */
+    .scan-row {
+      display: flex;
+      gap: 6px;
+      padding: 0 14px 12px;
+    }
+    .scan-row input {
+      flex: 1;
+      padding: 8px 10px;
       border: 1px solid #ccc;
-      text-align: center;
-      font-size: 14px;
-      min-height: 50px;
-      line-height: 1.5;
-      transition: background 0.3s ease, color 0.3s ease;
+      border-radius: 7px;
+      font-size: 12px;
+      outline: none;
     }
-    .safe {
-      background: #d4edda;
-      border-color: #c3e6cb;
-      color: #155724;
-    }
-    .suspicious {
-      background: #fff3cd;
-      border-color: #ffeeba;
-      color: #856404;
-    }
-    .phishing {
-      background: #f8d7da;
-      border-color: #f5c6cb;
-      color: #721c24;
-    }
-    /* Buttons */
-    .dashboard-btn, .report-btn {
-      margin-top: 12px;
-      display: block;
-      width: 100%;
-      padding: 8px;
+    .scan-row input:focus { border-color: #1565c0; }
+    .scan-row button {
+      padding: 8px 12px;
+      background: #1565c0;
+      color: #fff;
       border: none;
-      border-radius: 6px;
-      font-size: 14px;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 600;
       cursor: pointer;
-      transition: background 0.3s ease;
+      white-space: nowrap;
     }
-    .dashboard-btn {
-      background: #004080;
-      color: white;
+    .scan-row button:hover { background: #0d47a1; }
+
+    .scan-result {
+      margin: 0 14px 10px;
+      padding: 9px 12px;
+      border-radius: 7px;
+      font-size: 12px;
+      display: none;
+      border: 1px solid #ddd;
+      background: #fafafa;
     }
-    .dashboard-btn:hover {
-      background: #0066cc;
+    .scan-result.safe     { background: #e8f5e9; border-color: #a5d6a7; color: #1b5e20; display: block; }
+    .scan-result.phishing { background: #ffebee; border-color: #ef9a9a; color: #b71c1c; display: block; }
+    .scan-result.checking { background: #e3f2fd; border-color: #90caf9; color: #0d47a1; display: block; }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      padding: 0 14px 14px;
     }
-    .report-btn {
-      background: #d9534f;
-      color: white;
+    .btn {
+      width: 100%;
+      padding: 9px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
     }
-    .report-btn:hover {
-      background: #c9302c;
+    .btn:hover { opacity: 0.88; transform: scale(1.01); }
+    .btn-dashboard { background: #1a237e; color: #fff; }
+    .btn-report    { background: #c62828; color: #fff; }
+
+    .divider {
+      height: 1px;
+      background: #e0e0e0;
+      margin: 0 14px 12px;
     }
   </style>
 </head>
-<body class="popup">
-  <h3>PhishGuard</h3>
-  <div id="result" class="result-box">Checking...</div>
+<body>
 
-  <!-- Dashboard Button -->
-  <button id="openDashboard" class="dashboard-btn" title="Open extension dashboard">
-    📊 Open Dashboard
-  </button>
+  <!-- Header -->
+  <div class="header">
+    <div class="logo">🛡️</div>
+    <div>
+      <h1>PhishGuard <span style="font-size:10px;opacity:0.6;font-weight:400;">v1.2</span></h1>
+      <p>AI-powered phishing protection · <span id="onlineStatus">checking...</span></p>
+    </div>
+  </div>
 
-  <!-- Report Button -->
-  <button id="reportBtn" class="report-btn" title="Report this site as suspicious">
-    🚨 Report Site
-  </button>
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat danger">
+      <div class="num" id="statBlocked">—</div>
+      <div class="lbl">Threats</div>
+    </div>
+    <div class="stat">
+      <div class="num" id="statWeek">—</div>
+      <div class="lbl">This Week</div>
+    </div>
+    <div class="stat safe-s">
+      <div class="num" id="statToday">—</div>
+      <div class="lbl">Today</div>
+    </div>
+  </div>
+
+  <!-- Current site -->
+  <div class="section">
+    <div id="result" class="result-box">🔍 Analyzing current page...</div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Manual URL scan -->
+  <div class="scan-row">
+    <input type="text" id="scanInput" placeholder="Paste any URL to scan..." />
+    <button id="scanBtn">Scan</button>
+  </div>
+  <div id="scanResult" class="scan-result"></div>
+
+  <div class="divider"></div>
+
+  <!-- Action buttons -->
+  <div class="btn-row">
+    <button id="openDashboard" class="btn btn-dashboard">📊 Open Dashboard</button>
+    <button id="reportBtn"     class="btn btn-report">🚨 Report This Site</button>
+  </div>
 
   <script src="popup.js"></script>
 </body>

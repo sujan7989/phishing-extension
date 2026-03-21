@@ -131,20 +131,10 @@ document.addEventListener("DOMContentLoaded", () => {
       // Buttons
       // ===============================
 
-      // Back → either go back, close tab, or fallback to simple_warning
+      // Back → go back in same tab
       if (backBtn) {
         backBtn.addEventListener("click", () => {
-          try {
-            if (document.referrer) {
-              window.history.back();
-            } else {
-              // Fallback: open simple warning page
-              window.location.href = chrome.runtime.getURL("simple_warning.html");
-            }
-          } catch (err) {
-            console.warn("[PhishGuard] backBtn error:", err);
-            window.close();
-          }
+          window.history.back();
         });
       }
 
@@ -159,29 +149,19 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
 
-      // More Details
+      // More Details — same tab
       if (detailsBtn) {
         detailsBtn.addEventListener("click", () => {
-          try {
-            const detailsUrl = chrome.runtime.getURL("details.html");
-            window.open(detailsUrl, "_blank", "noopener,noreferrer");
-          } catch (err) {
-            console.error("[PhishGuard] detailsBtn error:", err);
-          }
+          window.location.href = chrome.runtime.getURL("details.html");
         });
       }
 
-      // Dashboard
+      // Dashboard — same tab
       if (dashboardBtn) {
         dashboardBtn.addEventListener("click", () => {
-          try {
-            const dashUrl = chrome.runtime.getURL("dashboard.html");
-            chrome.storage.local.set({ lastPage: "warning" }, () => {
-              window.open(dashUrl, "_blank", "noopener,noreferrer");
-            });
-          } catch (err) {
-            console.error("[PhishGuard] dashboardBtn error:", err);
-          }
+          chrome.storage.local.set({ lastPage: "warning" }, () => {
+            window.location.href = chrome.runtime.getURL("dashboard.html");
+          });
         });
       }
     });

@@ -1,105 +1,157 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>⚠ AI Analysis Report</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>📊 AI Analysis Report — PhishGuard</title>
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: Arial, sans-serif;
-      background: #f7fbff;
-      margin: 0;
-      padding: 24px;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(135deg, #e8f0fe, #f5f7fa);
+      min-height: 100vh;
+      padding: 30px 20px;
+      color: #222;
     }
     .box {
       background: #fff;
-      border: 2px solid #6ea8fe;
-      border-radius: 14px;
-      padding: 24px;
-      max-width: 880px;
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 860px;
       margin: 0 auto;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+      animation: fadeIn 0.5s ease-out;
     }
-    .header {
-      text-align: center;
-      margin-bottom: 10px;
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
-    .header img {
-      display: block;
-      margin: 0 auto 10px;
+    .header { text-align: center; margin-bottom: 28px; }
+    .header .icon { font-size: 52px; }
+    .header h2 { font-size: 24px; color: #1a237e; margin: 10px 0 4px; }
+    .header p { font-size: 14px; color: #666; }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 28px;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
+    .summary-card {
+      background: #f8f9ff;
+      border: 1px solid #dde3f5;
+      border-radius: 10px;
+      padding: 14px 16px;
     }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 8px 10px;
-      font-size: 14px;
+    .summary-card .s-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #888;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
     }
-    th {
-      background: #f1f5ff;
-      text-align: left;
+    .summary-card .s-value {
+      font-size: 15px;
+      font-weight: 600;
+      color: #1a237e;
+      word-break: break-all;
     }
-    .btn {
-      padding: 10px 18px;
-      border: none;
+    .summary-card.danger { border-color: #ef9a9a; background: #fff5f5; }
+    .summary-card.danger .s-value { color: #c62828; }
+    .risk-bar-wrap {
+      background: #eee;
       border-radius: 8px;
-      cursor: pointer;
+      height: 12px;
+      overflow: hidden;
+      margin-top: 8px;
     }
-    .primary {
-      background: #0d6efd;
-      color: #fff;
+    .risk-bar { height: 100%; border-radius: 8px; transition: width 0.9s ease; }
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a237e;
+      margin-bottom: 12px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #e8eaf6;
     }
-    .primary:hover {
-      background: #0b5ed7;
-    }
-    .footer {
-      margin-top: 16px;
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { border: 1px solid #e0e0e0; padding: 10px 12px; text-align: left; }
+    th { background: #e8eaf6; color: #1a237e; font-weight: 700; font-size: 13px; }
+    tr:nth-child(even) td { background: #fafafa; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .badge-yes  { background: #ffebee; color: #c62828; }
+    .badge-no   { background: #e8f5e9; color: #2e7d32; }
+    .badge-warn { background: #fff8e1; color: #f57f17; }
+    .footer-btns {
       display: flex;
-      gap: 10px;
+      gap: 12px;
       justify-content: center;
+      margin-top: 28px;
+      flex-wrap: wrap;
     }
-    .muted {
-      color: #666;
-      font-size: 13px;
-      text-align: right;
-      margin-top: 10px;
+    button {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    button:hover { opacity: 0.88; transform: scale(1.03); }
+    .btn-back   { background: #1565c0; color: #fff; }
+    .btn-report { background: #f9a825; color: #000; }
+    .timestamp { text-align: center; font-size: 12px; color: #aaa; margin-top: 16px; }
+    @media (max-width: 600px) {
+      .box { padding: 20px 14px; }
+      .footer-btns { flex-direction: column; }
+      button { width: 100%; }
     }
   </style>
 </head>
 <body>
   <div class="box">
     <div class="header">
-      <!-- Fixed: ensure icons load via manifest -->
-      <img src="icons/icon48.png" alt="PhishGuard Shield Icon" width="48" height="48" />
-      <h2>⚠ AI Analysis Report</h2>
-      <p>PhishGuard detected potential risks on this site.</p>
+      <div class="icon">🤖</div>
+      <h2>AI Analysis Report</h2>
+      <p>PhishGuard detected the following threats on this site.</p>
     </div>
 
-    <div class="row">
-      <b>AI Features Extracted</b>
-      <table>
-        <thead>
-          <tr><th>Feature</th><th>Value</th></tr>
-        </thead>
-        <tbody id="featuresBody">
-          <!-- Placeholder to avoid raw JSON flash -->
-          <tr>
-            <td colspan="2" style="text-align:center; color:#888;">Loading features…</td>
-          </tr>
-        </tbody>
-      </table>
+    <div class="summary-grid">
+      <div class="summary-card danger">
+        <div class="s-label">Blocked URL</div>
+        <div class="s-value" id="detailUrl">Loading...</div>
+      </div>
+      <div class="summary-card danger">
+        <div class="s-label">Verdict</div>
+        <div class="s-value" id="detailVerdict">—</div>
+      </div>
+      <div class="summary-card">
+        <div class="s-label">Risk Score</div>
+        <div class="s-value" id="detailProb">—</div>
+        <div class="risk-bar-wrap">
+          <div class="risk-bar" id="detailBar" style="width:0%"></div>
+        </div>
+      </div>
+      <div class="summary-card">
+        <div class="s-label">Reason</div>
+        <div class="s-value" id="detailReason">—</div>
+      </div>
     </div>
 
-    <div class="footer">
-      <button id="backBtn" class="btn primary">⬅ Back to Warning</button>
-    </div>
+    <div class="section-title">🔍 AI Feature Breakdown</div>
+    <table>
+      <thead><tr><th>Feature</th><th>Value</th></tr></thead>
+      <tbody id="featuresBody">
+        <tr><td colspan="2" style="text-align:center;color:#888;">Loading features…</td></tr>
+      </tbody>
+    </table>
 
-    <div id="timestamp" class="muted">Analyzing time...</div>
+    <div class="footer-btns">
+      <button id="backBtn"   class="btn-back">⬅ Back to Warning</button>
+      <button id="reportBtn" class="btn-report">🚨 Report This Site</button>
+    </div>
+    <div class="timestamp" id="timestamp"></div>
   </div>
-
   <script src="details.js"></script>
 </body>
 </html>
