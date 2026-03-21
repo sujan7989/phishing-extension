@@ -195,7 +195,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
   // Try deployed API first, fall back to localhost for development
   const API_URLS = [
-    "https://phishguard-api.onrender.com/predict",
+    "https://phishing-extension-tib4.onrender.com/predict",
     "http://127.0.0.1:5000/predict",
     "http://localhost:5000/predict",
   ];
@@ -320,7 +320,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
 
         // Send to backend
-        const res = await fetch("https://phishguard-api.onrender.com/report", {
+        const res = await fetch("https://phishing-extension-tib4.onrender.com/report", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: message.url }),
