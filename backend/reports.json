@@ -28,5 +28,10 @@
     "url": "https://amazon-gift-card-free.com/",
     "reason": "User reported phishing",
     "timestamp": "2025-11-28T09:43:59.104219"
+  },
+  {
+    "url": "http://127.0.0.1:5000/predict?url=http://paypal.com/login",
+    "reason": "User reported phishing",
+    "timestamp": "2026-03-13T12:41:56.082936"
   }
 ]

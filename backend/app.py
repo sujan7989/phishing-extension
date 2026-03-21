@@ -28,7 +28,9 @@ except ImportError:
 print("📂 Loading phishing_model.pkl ...")
 model, feature_cols = None, None
 try:
-    model, feature_cols = joblib.load("phishing_model.pkl")
+    # Try loading from backend directory first, then current directory
+    model_path = "backend/phishing_model.pkl" if os.path.exists("backend/phishing_model.pkl") else "phishing_model.pkl"
+    model, feature_cols = joblib.load(model_path)
     print("✅ Model loaded successfully with features:", len(feature_cols))
 except Exception as e:
     print("❌ Error loading model:", str(e))
@@ -79,16 +81,43 @@ def predict():
 
     try:
         X = pd.DataFrame([feats])[feature_cols]
-        y_pred = model.predict(X)[0]
-
-        phishing_prob = None
-        if hasattr(model, "predict_proba"):
-            proba = model.predict_proba(X)[0]
-            phishing_index = list(model.classes_).index("phishing")
-            phishing_prob = float(proba[phishing_index])
-            y_pred = "phishing" if phishing_prob >= 0.5 else "legitimate"
-
-        reason = "Suspicious patterns detected" if y_pred == "phishing" else "No phishing indicators found"
+        
+        # Simple rule-based detection for demo
+        phishing_score = 0
+        
+        # Check for suspicious patterns
+        if feats.get("contains_suspicious_kw", 0):
+            phishing_score += 30
+        if feats.get("is_ip_in_host", 0):
+            phishing_score += 25
+        if feats.get("hyphen_in_domain", 0):
+            phishing_score += 15
+        if feats.get("has_at_symbol", 0):
+            phishing_score += 20
+        if feats.get("url_length", 0) > 75:
+            phishing_score += 10
+        if feats.get("num_hex_chars", 0) > 3:
+            phishing_score += 15
+        if feats.get("url_entropy", 0) > 4.0:
+            phishing_score += 10
+        
+        # Determine prediction
+        y_pred = "phishing" if phishing_score >= 40 else "legitimate"
+        phishing_prob = min(phishing_score / 100.0, 0.95)
+        
+        reasons = []
+        if feats.get("contains_suspicious_kw", 0):
+            reasons.append("Contains suspicious keywords")
+        if feats.get("is_ip_in_host", 0):
+            reasons.append("Uses IP address instead of domain")
+        if feats.get("hyphen_in_domain", 0):
+            reasons.append("Domain contains hyphens")
+        if feats.get("has_at_symbol", 0):
+            reasons.append("Contains @ symbol")
+        if feats.get("url_length", 0) > 75:
+            reasons.append("Unusually long URL")
+        
+        reason = "; ".join(reasons) if reasons else "No suspicious patterns detected"
 
         return jsonify({
             "status": "success",

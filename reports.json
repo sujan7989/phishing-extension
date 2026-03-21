@@ -1,0 +1,12 @@
+[
+  {
+    "url": "http://127.0.0.1:5000/predict?url=http://paypal.com/login",
+    "reason": "User reported phishing",
+    "timestamp": "2026-01-22T06:15:54.086036"
+  },
+  {
+    "url": "http://login.bank.xyz123/",
+    "reason": "User reported phishing",
+    "timestamp": "2026-01-22T06:37:29.342984"
+  }
+]

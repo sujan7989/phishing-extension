@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+venv_new/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & temp
+*.log
+*.tmp
+
+# Dataset (large file — don't push to GitHub)
+dataset/
+
+# Model file (large — use Git LFS or exclude)
+backend/phishing_model.pkl
+
+# Test/helper scripts
+test_detection.py
+test_comprehensive.py
+check_model.py
+show_model_performance.py
+run_performance_analysis.bat
+
+# Deployment docs (optional)
+DEPLOYMENT_CHECKLIST.md
+PROJECT_STATUS.txt
+PROJECT_REVIEW_QA.md
+PROJECT_TECHNICAL_ANALYSIS.md
+ML_MODEL_ANALYSIS.md
+requirements_analysis.txt
+READY_TO_TEST.txt
+START_BACKEND.bat

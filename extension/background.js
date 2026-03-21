@@ -193,15 +193,30 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
   console.log("[PhishGuard] 🔍 Checking URL:", tab.url);
 
-  fetch("http://localhost:5000/predict", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url: tab.url }),
-  })
-    .then((response) => {
-      if (!response.ok) throw new Error("Backend returned " + response.status);
-      return response.json();
-    })
+  // Try deployed API first, fall back to localhost for development
+  const API_URLS = [
+    "https://phishguard-api.onrender.com/predict",
+    "http://127.0.0.1:5000/predict",
+    "http://localhost:5000/predict",
+  ];
+
+  async function fetchWithFallback(urls, body) {
+    for (const url of urls) {
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(5000),
+        });
+        if (res.ok) return res.json();
+      } catch (_) { /* try next */ }
+    }
+    throw new Error("All API endpoints unreachable");
+  }
+
+  fetchWithFallback(API_URLS, { url: tab.url })
+    .then((data) => data)
     .then((data) => {
       const prediction = (data?.prediction || "").toLowerCase();
       const probability = data.probability || 0;
@@ -214,26 +229,19 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
       });
 
       if (prediction === "phishing") {
-        // PHISHING DETECTED - Show warning page
         const reason = data.reason || "Suspicious patterns detected";
-        const features =
-          data.features && typeof data.features === "object" ? data.features : {};
+        const probability = data.probability || 0;
+        const features = data.features && typeof data.features === "object" ? data.features : {};
 
-        console.log("[PhishGuard] ⚠️ PHISHING DETECTED - Blocking site");
+        console.log("[PhishGuard] ⚠️ PHISHING DETECTED:", tab.url);
 
-        // Store detection data
-        chrome.storage.local.set(
-          { lastDetection: { url: tab.url, reason, probability, features } },
-          () => {
-            console.log("[PhishGuard] Detection data saved, redirecting to warning page");
-            // Redirect to warning page
-            chrome.tabs.update(tabId, { url: simpleWarningUrlPrefix });
-          }
-        );
+        // CRITICAL: store data FIRST, then redirect (fixes race condition)
+        const detectionData = { url: tab.url, reason, probability, features };
+        chrome.storage.local.set({ lastDetection: detectionData }, () => {
+          chrome.tabs.update(tabId, { url: simpleWarningUrlPrefix });
+        });
 
-        // Log to history
         logPhishingDetection(tab.url, reason, probability, features);
-
         setPhishingBadge(tabId);
       } else if (prediction === "legitimate") {
         // LEGITIMATE - Allow access
@@ -312,11 +320,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
 
         // Send to backend
-        const res = await fetch("http://localhost:5000/report", {
+        const res = await fetch("https://phishguard-api.onrender.com/report", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ url: message.url }),
-        });
+        }).catch(() =>
+          fetch("http://127.0.0.1:5000/report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: message.url }),
+          })
+        );
 
         if (!res.ok) throw new Error("Backend /report failed " + res.status);
 
