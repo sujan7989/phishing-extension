@@ -49,22 +49,41 @@ SAFE_DOMAINS = {
     "nytimes.com", "bbc.com", "cnn.com", "reuters.com", "theguardian.com",
     "office.com", "live.com", "outlook.com", "hotmail.com", "gmail.com",
     "cloudflare.com", "amazonaws.com", "azure.com", "heroku.com",
+    # Common tools & productivity
+    "ilovepdf.com", "smallpdf.com", "canva.com", "figma.com", "notion.so",
+    "trello.com", "slack.com", "atlassian.com", "jira.com", "confluence.com",
+    "drive.google.com", "docs.google.com", "sheets.google.com",
+    "forms.google.com", "meet.google.com", "calendar.google.com",
+    "maps.google.com", "play.google.com", "accounts.google.com",
+    # Dev & tech
+    "npmjs.com", "pypi.org", "docker.com", "vercel.com", "netlify.com",
+    "digitalocean.com", "render.com", "railway.app", "supabase.com",
+    "mongodb.com", "postgresql.org", "mysql.com",
+    "w3schools.com", "mdn.mozilla.org", "developer.mozilla.org",
+    "reactjs.org", "vuejs.org", "angular.io", "nodejs.org", "python.org",
+    # Shopping & finance
+    "flipkart.com", "myntra.com", "snapdeal.com", "paytm.com",
+    "phonepe.com", "gpay.com", "razorpay.com", "visa.com", "mastercard.com",
+    # News & media
+    "ndtv.com", "timesofindia.com", "thehindu.com", "indiatimes.com",
+    "hindustantimes.com", "indianexpress.com", "techcrunch.com",
+    "theverge.com", "wired.com", "arstechnica.com",
+    # Cloud & email
+    "icloud.com", "protonmail.com", "proton.me", "tutanota.com",
+    "godaddy.com", "namecheap.com", "bluehost.com",
 }
 
 # ─────────────────────────────────────────────
 # PHISHING KEYWORDS
 # ─────────────────────────────────────────────
 PHISHING_KEYWORDS = [
-    "verify", "verification", "validate", "confirm", "update",
-    "secure", "security", "login", "signin", "sign-in",
-    "account", "password", "credential", "billing", "payment",
+    "verify", "verification", "validate", "confirm",
+    "secure", "security", "signin", "sign-in",
+    "password", "credential", "billing",
     "suspend", "suspended", "locked", "unlock", "alert",
-    "urgent", "immediately", "expire", "expired", "limited",
-    "paypal", "ebay", "amazon", "apple", "microsoft", "google",
-    "bank", "banking", "wellsfargo", "chase", "citibank",
-    "netflix", "instagram", "facebook", "whatsapp",
-    "free", "winner", "prize", "gift", "reward", "claim",
-    "webscr", "dispatch", "token",
+    "urgent", "immediately", "expire", "expired",
+    "wellsfargo", "chase", "citibank",
+    "webscr", "dispatch",
 ]
 
 # ─────────────────────────────────────────────
@@ -221,7 +240,7 @@ def detect_phishing(url):
         if kw in url_lower:
             keyword_hits.append(kw)
     if keyword_hits:
-        score += min(len(keyword_hits) * 12, 36)
+        score += min(len(keyword_hits) * 15, 40)
         reasons.append(f"Phishing keywords detected: {', '.join(keyword_hits[:4])}")
         signals["Keywords"] = ", ".join(keyword_hits[:4])
 
@@ -233,46 +252,52 @@ def detect_phishing(url):
 
     # ── SIGNAL 8: Excessive hyphens ─────────────────────────
     hyphen_count = domain.count("-") + subdomain.count("-")
-    if hyphen_count >= 2:
+    if hyphen_count >= 3:
         score += 20
         reasons.append(f"Domain has {hyphen_count} hyphens (common in phishing)")
         signals["Hyphens"] = str(hyphen_count)
+    elif hyphen_count >= 2:
+        score += 10
+        signals["Hyphens"] = str(hyphen_count)
     elif hyphen_count == 1:
-        score += 8
+        score += 0
         signals["Hyphens"] = "1"
 
     # ── SIGNAL 9: Too many subdomains ───────────────────────
     sub_parts = [s for s in subdomain.split(".") if s]
-    if len(sub_parts) >= 3:
+    if len(sub_parts) >= 4:
         score += 20
         reasons.append(f"Excessive subdomains ({len(sub_parts)}) used to hide real domain")
         signals["Subdomain Depth"] = str(len(sub_parts))
+    elif len(sub_parts) >= 3:
+        score += 10
+        signals["Subdomain Depth"] = str(len(sub_parts))
     elif len(sub_parts) == 2:
-        score += 8
+        score += 0
         signals["Subdomain Depth"] = "2"
 
     # ── SIGNAL 10: Very long URL ─────────────────────────────
-    if len(url) > 100:
+    if len(url) > 200:
         score += 15
         reasons.append(f"Unusually long URL ({len(url)} chars)")
         signals["URL Length"] = str(len(url))
-    elif len(url) > 75:
+    elif len(url) > 150:
         score += 8
         signals["URL Length"] = str(len(url))
 
     # ── SIGNAL 11: Encoded characters ───────────────────────
     hex_count = len(re.findall(r"%[0-9a-fA-F]{2}", url))
-    if hex_count > 5:
+    if hex_count > 8:
         score += 20
         reasons.append(f"Many encoded characters ({hex_count}) hiding real content")
         signals["Encoded Chars"] = str(hex_count)
-    elif hex_count > 2:
+    elif hex_count > 4:
         score += 10
         signals["Encoded Chars"] = str(hex_count)
 
     # ── SIGNAL 12: No HTTPS ─────────────────────────────────
     if parsed.scheme.lower() != "https":
-        score += 10
+        score += 8
         reasons.append("Not using HTTPS (insecure connection)")
         signals["HTTPS"] = "No"
     else:
@@ -286,7 +311,7 @@ def detect_phishing(url):
 
     # ── DECISION ─────────────────────────────────────────────
     probability = min(score, 100)
-    is_phishing = score >= 30
+    is_phishing = score >= 55  # Raised threshold — requires multiple strong signals
 
     if not reasons:
         reasons.append("No suspicious patterns detected")

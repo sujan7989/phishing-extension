@@ -68,7 +68,25 @@ const ICONS = {
 // ==============================
 // Safe Domains (built-in whitelist)
 // ==============================
-const SAFE_DOMAINS = ["google.com", "chatgpt.com", "openai.com", "github.com"];
+const SAFE_DOMAINS = [
+  "google.com", "youtube.com", "facebook.com", "twitter.com", "x.com",
+  "instagram.com", "linkedin.com", "github.com", "microsoft.com",
+  "apple.com", "amazon.com", "wikipedia.org", "reddit.com", "netflix.com",
+  "stackoverflow.com", "openai.com", "chatgpt.com", "bing.com",
+  "yahoo.com", "whatsapp.com", "telegram.org", "zoom.us", "dropbox.com",
+  "paypal.com", "ebay.com", "walmart.com", "adobe.com", "salesforce.com",
+  "wordpress.com", "shopify.com", "stripe.com", "twitch.tv", "discord.com",
+  "spotify.com", "pinterest.com", "tumblr.com", "quora.com", "medium.com",
+  "nytimes.com", "bbc.com", "cnn.com", "reuters.com", "theguardian.com",
+  "office.com", "live.com", "outlook.com", "hotmail.com", "gmail.com",
+  "cloudflare.com", "ilovepdf.com", "smallpdf.com", "canva.com", "figma.com",
+  "notion.so", "trello.com", "slack.com", "vercel.com", "netlify.com",
+  "npmjs.com", "pypi.org", "docker.com", "render.com", "supabase.com",
+  "w3schools.com", "developer.mozilla.org", "reactjs.org", "nodejs.org",
+  "flipkart.com", "paytm.com", "phonepe.com", "razorpay.com",
+  "ndtv.com", "timesofindia.com", "thehindu.com", "techcrunch.com",
+  "theverge.com", "icloud.com", "protonmail.com", "proton.me",
+];
 
 function isSafeDomain(url) {
   try {
@@ -216,8 +234,11 @@ function showPhishingNotification(url) {
 // Mirrors the same signals as backend/app_simple.py
 // ==============================
 const SUSPICIOUS_TLDS = [".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top", ".click", ".loan", ".work", ".date", ".racing", ".win", ".download", ".stream", ".gdn", ".accountant", ".science", ".faith", ".review", ".trade", ".party", ".men", ".bid", ".webcam", ".country", ".kim", ".cricket", ".space", ".ninja", ".link", ".site", ".online", ".tech", ".store", ".fun", ".icu", ".live", ".club", ".vip", ".monster", ".fake"];
-const PHISHING_KEYWORDS = ["verify", "secure", "account", "update", "login", "signin", "banking", "confirm", "password", "credential", "wallet", "alert", "suspended", "unusual", "activity", "validate", "authenticate", "recover", "unlock", "limited"];
-const BRAND_NAMES = ["paypal", "apple", "google", "microsoft", "amazon", "facebook", "instagram", "twitter", "netflix", "bank", "chase", "wellsfargo", "citibank", "ebay", "dropbox", "linkedin", "whatsapp", "telegram"];
+
+// Only keywords that would NEVER appear in a legitimate domain name
+const PHISHING_KEYWORDS = ["verify", "verification", "validate", "signin", "sign-in", "credential", "suspended", "unlock", "webscr", "dispatch"];
+
+const BRAND_NAMES = ["paypal", "apple", "google", "microsoft", "amazon", "facebook", "instagram", "twitter", "netflix", "chase", "wellsfargo", "citibank", "ebay", "dropbox", "linkedin", "whatsapp", "telegram"];
 
 function quickLocalCheck(rawUrl) {
   try {
@@ -237,8 +258,10 @@ function quickLocalCheck(rawUrl) {
     if (SUSPICIOUS_TLDS.includes(tld)) {
       return { isPhishing: true, reason: "Suspicious top-level domain: " + tld, probability: 90 };
     }
-    // 3. Brand name in subdomain (e.g. paypal.evil.com)
-    if (subdomains.some(s => BRAND_NAMES.some(b => s.includes(b)))) {
+    // 3. Brand name in subdomain only (e.g. paypal.evil.com) — NOT in root domain
+    const rootDomain = parts.slice(-2)[0]; // e.g. "evil" from paypal.evil.com
+    if (subdomains.some(s => BRAND_NAMES.some(b => s.includes(b))) &&
+        !BRAND_NAMES.some(b => rootDomain === b)) {
       return { isPhishing: true, reason: "Brand name used in subdomain", probability: 92 };
     }
     // 4. Fake domain embed (e.g. paypal.com.evil.com)
@@ -249,25 +272,24 @@ function quickLocalCheck(rawUrl) {
     if (fullUrl.includes("@")) {
       return { isPhishing: true, reason: "@ symbol in URL", probability: 88 };
     }
-    // 6. No HTTPS
-    if (parsed.protocol !== "https:") {
-      // Only flag if also has other signals — don't block all HTTP
-    }
-    // 7. Phishing keywords in domain
-    const domainPart = hostname.replace(/\./g, "");
-    if (PHISHING_KEYWORDS.some(k => domainPart.includes(k))) {
+    // 6. Phishing keywords — only check path/query, NOT the domain itself
+    const pathAndQuery = (parsed.pathname + (parsed.search || "")).toLowerCase();
+    const domainOnly = hostname.replace(/\./g, "");
+    // keyword must appear in path/query OR appear in domain but domain is NOT a known brand
+    const isBrandDomain = BRAND_NAMES.some(b => rootDomain === b || rootDomain.startsWith(b));
+    if (!isBrandDomain && PHISHING_KEYWORDS.some(k => domainOnly.includes(k))) {
       return { isPhishing: true, reason: "Phishing keyword in domain", probability: 85 };
     }
-    // 8. Excessive hyphens
+    // 7. Excessive hyphens (4+)
     if ((hostname.match(/-/g) || []).length >= 4) {
       return { isPhishing: true, reason: "Excessive hyphens in domain", probability: 80 };
     }
-    // 9. Very long URL
-    if (rawUrl.length > 150) {
+    // 8. Very long URL (raised threshold)
+    if (rawUrl.length > 250) {
       return { isPhishing: true, reason: "Unusually long URL", probability: 75 };
     }
-    // 10. Encoded characters
-    if ((fullUrl.match(/%[0-9a-f]{2}/g) || []).length > 3) {
+    // 9. Encoded characters (raised threshold)
+    if ((fullUrl.match(/%[0-9a-f]{2}/g) || []).length > 8) {
       return { isPhishing: true, reason: "Excessive URL encoding", probability: 82 };
     }
   } catch {
