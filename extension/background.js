@@ -247,50 +247,74 @@ function quickLocalCheck(rawUrl) {
     const fullUrl = rawUrl.toLowerCase();
     const parts = hostname.split(".");
     const tld = "." + parts.slice(-1)[0];
-    const domain = parts.slice(-2).join(".");
+    const rootDomain = parts.slice(-2)[0];
     const subdomains = parts.slice(0, -2);
+    const hyphenCount = (hostname.match(/-/g) || []).length;
+    const encodedCount = (fullUrl.match(/%[0-9a-f]{2}/g) || []).length;
+    const isHttps = parsed.protocol === "https:";
+    const isBrandDomain = BRAND_NAMES.some(b => rootDomain === b || rootDomain.startsWith(b));
+
+    // Build features for every URL regardless of verdict
+    const buildFeatures = (reason, probability) => ({
+      "URL Length":          rawUrl.length,
+      "Uses HTTPS":          isHttps ? "Yes" : "No",
+      "IP Address as Host":  /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) ? "Yes" : "No",
+      "Has @ Symbol":        fullUrl.includes("@") ? "Yes" : "No",
+      "Suspicious TLD":      SUSPICIOUS_TLDS.includes(tld) ? tld : "No",
+      "Brand Spoofing":      subdomains.some(s => BRAND_NAMES.some(b => s.includes(b))) && !isBrandDomain ? "Yes" : "None",
+      "Fake Domain Embed":   (subdomains.join(".").includes(".com") || subdomains.join(".").includes(".net")) ? "Yes" : "None",
+      "Hyphens in Domain":   String(hyphenCount),
+      "Subdomain Depth":     String(subdomains.filter(Boolean).length),
+      "Encoded Chars (%xx)": String(encodedCount),
+      "Phishing Keywords":   (!isBrandDomain && PHISHING_KEYWORDS.some(k => hostname.replace(/\./g,"").includes(k))) ? "Yes" : "None",
+      "Risk Score":          probability + "/100",
+      "Verdict":             "PHISHING",
+    });
 
     // 1. IP address URL
     if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname)) {
-      return { isPhishing: true, reason: "IP address used as URL", probability: 95 };
+      const p = 95;
+      return { isPhishing: true, reason: "IP address used as URL", probability: p, features: buildFeatures("IP address used as URL", p) };
     }
     // 2. Suspicious TLD
     if (SUSPICIOUS_TLDS.includes(tld)) {
-      return { isPhishing: true, reason: "Suspicious top-level domain: " + tld, probability: 90 };
+      const p = 90;
+      return { isPhishing: true, reason: "Suspicious top-level domain: " + tld, probability: p, features: buildFeatures("Suspicious TLD: " + tld, p) };
     }
     // 3. Brand name in subdomain only (e.g. paypal.evil.com) — NOT in root domain
-    const rootDomain = parts.slice(-2)[0]; // e.g. "evil" from paypal.evil.com
-    if (subdomains.some(s => BRAND_NAMES.some(b => s.includes(b))) &&
-        !BRAND_NAMES.some(b => rootDomain === b)) {
-      return { isPhishing: true, reason: "Brand name used in subdomain", probability: 92 };
+    if (subdomains.some(s => BRAND_NAMES.some(b => s.includes(b))) && !isBrandDomain) {
+      const p = 92;
+      return { isPhishing: true, reason: "Brand name used in subdomain", probability: p, features: buildFeatures("Brand name in subdomain", p) };
     }
     // 4. Fake domain embed (e.g. paypal.com.evil.com)
     if (subdomains.join(".").includes(".com") || subdomains.join(".").includes(".net")) {
-      return { isPhishing: true, reason: "Fake domain embedded in subdomain", probability: 93 };
+      const p = 93;
+      return { isPhishing: true, reason: "Fake domain embedded in subdomain", probability: p, features: buildFeatures("Fake domain embed", p) };
     }
     // 5. @ symbol in URL
     if (fullUrl.includes("@")) {
-      return { isPhishing: true, reason: "@ symbol in URL", probability: 88 };
+      const p = 88;
+      return { isPhishing: true, reason: "@ symbol in URL", probability: p, features: buildFeatures("@ symbol in URL", p) };
     }
-    // 6. Phishing keywords — only check path/query, NOT the domain itself
-    const pathAndQuery = (parsed.pathname + (parsed.search || "")).toLowerCase();
-    const domainOnly = hostname.replace(/\./g, "");
-    // keyword must appear in path/query OR appear in domain but domain is NOT a known brand
-    const isBrandDomain = BRAND_NAMES.some(b => rootDomain === b || rootDomain.startsWith(b));
-    if (!isBrandDomain && PHISHING_KEYWORDS.some(k => domainOnly.includes(k))) {
-      return { isPhishing: true, reason: "Phishing keyword in domain", probability: 85 };
+    // 6. Phishing keywords in domain
+    if (!isBrandDomain && PHISHING_KEYWORDS.some(k => hostname.replace(/\./g,"").includes(k))) {
+      const p = 85;
+      return { isPhishing: true, reason: "Phishing keyword in domain", probability: p, features: buildFeatures("Phishing keyword in domain", p) };
     }
     // 7. Excessive hyphens (4+)
-    if ((hostname.match(/-/g) || []).length >= 4) {
-      return { isPhishing: true, reason: "Excessive hyphens in domain", probability: 80 };
+    if (hyphenCount >= 4) {
+      const p = 80;
+      return { isPhishing: true, reason: "Excessive hyphens in domain", probability: p, features: buildFeatures("Excessive hyphens", p) };
     }
     // 8. Very long URL (raised threshold)
     if (rawUrl.length > 250) {
-      return { isPhishing: true, reason: "Unusually long URL", probability: 75 };
+      const p = 75;
+      return { isPhishing: true, reason: "Unusually long URL", probability: p, features: buildFeatures("Unusually long URL", p) };
     }
     // 9. Encoded characters (raised threshold)
-    if ((fullUrl.match(/%[0-9a-f]{2}/g) || []).length > 8) {
-      return { isPhishing: true, reason: "Excessive URL encoding", probability: 82 };
+    if (encodedCount > 8) {
+      const p = 82;
+      return { isPhishing: true, reason: "Excessive URL encoding", probability: p, features: buildFeatures("Excessive URL encoding", p) };
     }
   } catch {
     return { isPhishing: false };
@@ -368,7 +392,8 @@ function _runDetectionCore(tabId, tabUrl, simpleWarningUrlPrefix) {
   const localResult = quickLocalCheck(tabUrl);
   if (localResult.isPhishing) {
     console.log("[PhishGuard] ⚡ LOCAL CHECK: Phishing detected instantly:", tabUrl);
-    const detectionData = { url: tabUrl, reason: localResult.reason, probability: localResult.probability, features: {} };
+    const localFeatures = localResult.features || {};
+    const detectionData = { url: tabUrl, reason: localResult.reason, probability: localResult.probability, features: localFeatures };
     redirectedTabs.add(tabId);
     chrome.storage.local.set({ lastDetection: detectionData }, () => {
       chrome.tabs.update(tabId, { url: simpleWarningUrlPrefix });
@@ -376,23 +401,23 @@ function _runDetectionCore(tabId, tabUrl, simpleWarningUrlPrefix) {
     setPhishingBadge(tabId);
     showPhishingNotification(tabUrl);
 
+    // Try API in background to enrich features — update storage if API responds
     fetchWithFallback(
       [RENDER_URL + "/predict", "http://127.0.0.1:5000/predict"],
       { url: tabUrl }
     ).then((data) => {
-      if (data?.prediction?.toLowerCase() === "phishing") {
-        logPhishingDetection(tabUrl, data.reason || localResult.reason, data.probability || localResult.probability, data.features || {});
-        chrome.storage.local.set({
-          lastDetection: {
-            url: tabUrl,
-            reason: data.reason || localResult.reason,
-            probability: data.probability || localResult.probability,
-            features: data.features || {},
-          }
-        });
-      }
+      const apiFeatures = (data?.features && typeof data.features === "object" && Object.keys(data.features).length > 0)
+        ? data.features : localFeatures;
+      const enriched = {
+        url: tabUrl,
+        reason: data?.reason || localResult.reason,
+        probability: data?.probability || localResult.probability,
+        features: apiFeatures,
+      };
+      logPhishingDetection(tabUrl, enriched.reason, enriched.probability, enriched.features);
+      chrome.storage.local.set({ lastDetection: enriched });
     }).catch(() => {
-      logPhishingDetection(tabUrl, localResult.reason, localResult.probability, {});
+      logPhishingDetection(tabUrl, localResult.reason, localResult.probability, localFeatures);
     });
     return;
   }
