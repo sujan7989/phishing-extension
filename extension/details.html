@@ -146,6 +146,25 @@
       </tbody>
     </table>
 
+    <!-- VirusTotal Intelligence Card -->
+    <div style="margin-top:24px;">
+      <div class="section-title">🦠 VirusTotal Intelligence</div>
+      <div id="vtCard" style="
+        background:#f8f9ff;border:1px solid #dde3f5;border-radius:12px;
+        padding:18px 20px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+        <div style="font-size:36px;">🔬</div>
+        <div style="flex:1;">
+          <div id="vtStatus" style="font-size:15px;font-weight:600;color:#555;">Checking VirusTotal...</div>
+          <div id="vtEngines" style="font-size:13px;color:#888;margin-top:4px;"></div>
+        </div>
+        <a id="vtLink" href="#" target="_blank" style="
+          display:none;padding:8px 16px;background:#1565c0;color:#fff;
+          border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;">
+          View Full Report ↗
+        </a>
+      </div>
+    </div>
+
     <div class="footer-btns">
       <button id="backBtn"   class="btn-back">⬅ Back to Warning</button>
       <button id="reportBtn" class="btn-report">🚨 Report This Site</button>

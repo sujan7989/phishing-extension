@@ -12,6 +12,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (url !== "Unknown" && Object.keys(features).length < 3) {
       fetchFeaturesFromAPI(url);
     }
+
+    // Always fetch VirusTotal intelligence
+    if (url !== "Unknown") {
+      fetchVirusTotal(url);
+    }
   });
 });
 
@@ -130,4 +135,81 @@ function renderPage(url, reason, prob, features) {
       });
     });
   }
+}
+
+// ── VirusTotal Intelligence ─────────────────────────────────
+function fetchVirusTotal(url) {
+  const vtStatus  = document.getElementById("vtStatus");
+  const vtEngines = document.getElementById("vtEngines");
+  const vtLink    = document.getElementById("vtLink");
+  const vtCard    = document.getElementById("vtCard");
+  if (!vtStatus) return;
+
+  const VT_APIS = [
+    "https://phishing-extension-tib4.onrender.com/virustotal",
+    "http://127.0.0.1:5000/virustotal",
+  ];
+
+  (async () => {
+    for (const api of VT_APIS) {
+      try {
+        const res = await fetch(api, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!res.ok) continue;
+        const data = await res.json();
+        const vt   = data?.virustotal;
+        if (!vt) continue;
+
+        if (vt.error) {
+          vtStatus.textContent  = "VirusTotal: " + vt.error;
+          vtEngines.textContent = "";
+          if (vt.vt_link) {
+            vtLink.href = vt.vt_link;
+            vtLink.style.display = "inline-block";
+          }
+          return;
+        }
+
+        const detected = vt.engines_detected || 0;
+        const total    = vt.engines_total    || 0;
+        const verdict  = vt.verdict          || "unknown";
+
+        // Color the card based on verdict
+        if (verdict === "malicious") {
+          vtCard.style.background   = "#fff5f5";
+          vtCard.style.borderColor  = "#ef9a9a";
+          vtStatus.style.color      = "#c62828";
+          vtStatus.textContent      = `🚨 Flagged by ${detected} / ${total} security engines`;
+        } else if (verdict === "suspicious") {
+          vtCard.style.background   = "#fff8e1";
+          vtCard.style.borderColor  = "#ffe082";
+          vtStatus.style.color      = "#f57f17";
+          vtStatus.textContent      = `⚠️ Suspicious — ${detected} / ${total} engines flagged`;
+        } else {
+          vtCard.style.background   = "#f1f8e9";
+          vtCard.style.borderColor  = "#a5d6a7";
+          vtStatus.style.color      = "#2e7d32";
+          vtStatus.textContent      = `✅ Clean — 0 / ${total} engines flagged`;
+        }
+
+        vtEngines.innerHTML =
+          `<span style="color:#c62828">Malicious: ${vt.malicious}</span> &nbsp;|&nbsp; ` +
+          `<span style="color:#f57f17">Suspicious: ${vt.suspicious}</span> &nbsp;|&nbsp; ` +
+          `<span style="color:#2e7d32">Harmless: ${vt.harmless}</span> &nbsp;|&nbsp; ` +
+          `<span style="color:#888">Undetected: ${vt.undetected}</span>`;
+
+        if (vt.vt_link) {
+          vtLink.href = vt.vt_link;
+          vtLink.style.display = "inline-block";
+        }
+        return;
+      } catch (_) { /* try next */ }
+    }
+    // All failed
+    if (vtStatus) vtStatus.textContent = "VirusTotal unavailable — backend offline";
+  })();
 }

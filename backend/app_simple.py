@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-import json, os, re
+import json, os, re, base64, urllib.request
 from datetime import datetime
 from urllib.parse import urlparse
 import tldextract
@@ -33,6 +33,56 @@ limiter = Limiter(
 )
 
 print("✅ PhishGuard backend loaded!")
+
+# ─────────────────────────────────────────────
+# VIRUSTOTAL CONFIG
+# Set VT_API_KEY env variable on Render dashboard
+# Free tier: 4 requests/minute, 500/day
+# ─────────────────────────────────────────────
+VT_API_KEY = os.environ.get("VT_API_KEY", "")
+
+def virustotal_check(url):
+    """
+    Query VirusTotal URL scan API.
+    Returns dict with engines_detected, engines_total, vt_link, stats or error.
+    """
+    if not VT_API_KEY:
+        return {"error": "VirusTotal API key not configured"}
+    try:
+        # Encode URL to base64 (VT v3 API requirement)
+        url_id = base64.urlsafe_b64encode(url.encode()).decode().rstrip("=")
+        api_url = f"https://www.virustotal.com/api/v3/urls/{url_id}"
+        req = urllib.request.Request(
+            api_url,
+            headers={"x-apikey": VT_API_KEY},
+        )
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read())
+
+        stats = data.get("data", {}).get("attributes", {}).get("last_analysis_stats", {})
+        malicious  = stats.get("malicious", 0)
+        suspicious = stats.get("suspicious", 0)
+        harmless   = stats.get("harmless", 0)
+        undetected = stats.get("undetected", 0)
+        total      = malicious + suspicious + harmless + undetected
+
+        return {
+            "engines_detected": malicious + suspicious,
+            "engines_total":    total,
+            "malicious":        malicious,
+            "suspicious":       suspicious,
+            "harmless":         harmless,
+            "undetected":       undetected,
+            "vt_link":          f"https://www.virustotal.com/gui/url/{url_id}",
+            "verdict":          "malicious" if malicious > 0 else "suspicious" if suspicious > 0 else "clean",
+        }
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            # URL not yet in VT database — submit it
+            return {"error": "URL not yet in VirusTotal database", "vt_link": "https://www.virustotal.com"}
+        return {"error": f"VirusTotal API error: {e.code}"}
+    except Exception as ex:
+        return {"error": str(ex)}
 
 # ─────────────────────────────────────────────
 # KNOWN SAFE DOMAINS — never flag these
@@ -393,6 +443,17 @@ def report():
     except Exception as e:
         print(f"❌ Report error: {e}")
         return jsonify({"status": "error", "message": "Failed to store report"}), 500
+
+
+@app.route("/virustotal", methods=["POST"])
+@limiter.limit("10 per minute")
+def virustotal_route():
+    data = request.get_json(silent=True) or {}
+    url  = (data.get("url") or "").strip()
+    if not url or len(url) > 2048:
+        return jsonify({"status": "error", "message": "Invalid URL"}), 400
+    result = virustotal_check(url)
+    return jsonify({"status": "success", "virustotal": result})
 
 
 @app.errorhandler(429)
