@@ -90,9 +90,19 @@ function renderPage(url, reason, prob, features) {
         const keyLower  = k.toLowerCase();
 
         if (lower === "yes" || lower === "phishing") {
-          cell = `<span class="badge badge-yes">${display}</span>`;
+          // HTTPS = Yes should be green, not red
+          if (k.toLowerCase().includes("https")) {
+            cell = `<span class="badge badge-no">${display}</span>`;
+          } else {
+            cell = `<span class="badge badge-yes">${display}</span>`;
+          }
         } else if (lower === "no" || lower === "legitimate") {
-          cell = `<span class="badge badge-no">${display}</span>`;
+          // HTTPS = No should be red
+          if (k.toLowerCase().includes("https")) {
+            cell = `<span class="badge badge-yes">${display}</span>`;
+          } else {
+            cell = `<span class="badge badge-no">${display}</span>`;
+          }
         } else if (lower === "none" || lower === "0") {
           cell = `<span class="badge badge-no">${display}</span>`;
         } else if (
