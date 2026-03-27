@@ -16,6 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Always fetch VirusTotal intelligence
     if (url !== "Unknown") {
       fetchVirusTotal(url);
+      renderContentSignals(d);
     }
   });
 });
@@ -212,4 +213,61 @@ function fetchVirusTotal(url) {
     // All failed
     if (vtStatus) vtStatus.textContent = "VirusTotal unavailable — backend offline";
   })();
+}
+
+// ── Content Analysis Signals ────────────────────────────────
+function renderContentSignals(d) {
+  const section = document.getElementById("contentSection");
+  const card    = document.getElementById("contentCard");
+  if (!section || !card) return;
+
+  const features = d.features || {};
+  const items = [];
+
+  if (features["Password Field"] === "Yes")
+    items.push({ icon: "🔑", text: "Password input field detected on page", bad: false });
+  if (features["Form Action Mismatch"])
+    items.push({ icon: "🚨", text: `Form submits to different domain: <strong>${features["Form Action Mismatch"]}</strong>`, bad: true });
+  if (features["Hidden Iframes"])
+    items.push({ icon: "👁️", text: `${features["Hidden Iframes"]} hidden iframe(s) found`, bad: true });
+  if (features["Suspicious Scripts"])
+    items.push({ icon: "⚠️", text: `${features["Suspicious Scripts"]} script(s) from suspicious domains`, bad: true });
+  if (features["Title Spoofing"])
+    items.push({ icon: "🎭", text: `Page title spoofs brand: <strong>${features["Title Spoofing"]}</strong>`, bad: true });
+
+  // Also show domain age if available
+  if (features["Domain Age"] && features["Domain Age"] !== "Unknown") {
+    const isNew = features["Domain Age"].includes("NEW");
+    items.push({
+      icon: isNew ? "🆕" : "📅",
+      text: `Domain age: <strong>${features["Domain Age"]}</strong>`,
+      bad: isNew,
+    });
+  }
+
+  if (!items.length) {
+    // Poll storage once more after a short delay — content script may not have run yet
+    setTimeout(() => {
+      chrome.storage.local.get(["lastDetection"], (res) => {
+        const f = res?.lastDetection?.features || {};
+        const hasContent = f["Password Field"] || f["Form Action Mismatch"] ||
+                           f["Hidden Iframes"] || f["Title Spoofing"] || f["Domain Age"];
+        if (hasContent) {
+          renderContentSignals(res.lastDetection);
+        } else {
+          section.style.display = "block";
+          card.innerHTML = `<span style="color:#aaa;">No suspicious page content detected.</span>`;
+        }
+      });
+    }, 2000);
+    return;
+  }
+
+  section.style.display = "block";
+  card.innerHTML = items.map(item =>
+    `<div style="margin-bottom:8px;">
+      ${item.icon}
+      <span style="color:${item.bad ? "#c62828" : "#333"}">${item.text}</span>
+    </div>`
+  ).join("");
 }

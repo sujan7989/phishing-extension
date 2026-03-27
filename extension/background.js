@@ -507,6 +507,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   // ==============================
+  // 📄 Content Script Signals
+  // ==============================
+  if (message.action === "contentSignals" && message.url) {
+    const { url, signals, riskScore } = message;
+    chrome.storage.local.get(["lastDetection"], (res) => {
+      const d = res?.lastDetection || {};
+      // Only merge if this is for the same URL that was last detected
+      if (!d.url || !url.startsWith(d.url.split("?")[0])) return;
+
+      const updatedFeatures = Object.assign({}, d.features || {});
+      if (signals.hasPasswordField)    updatedFeatures["Password Field"]       = "Yes";
+      if (signals.formActionMismatch)  updatedFeatures["Form Action Mismatch"] = signals.formActionMismatch;
+      if (signals.hiddenIframes)       updatedFeatures["Hidden Iframes"]       = String(signals.hiddenIframes);
+      if (signals.suspiciousScripts)   updatedFeatures["Suspicious Scripts"]   = String(signals.suspiciousScripts);
+      if (signals.titleSpoofing)       updatedFeatures["Title Spoofing"]       = signals.titleSpoofing;
+
+      // Boost risk score if content signals found on a flagged page
+      const newProb = Math.min((d.probability || 0) + riskScore, 100);
+
+      chrome.storage.local.set({
+        lastDetection: {
+          ...d,
+          features:    updatedFeatures,
+          probability: newProb,
+          contentRisk: riskScore,
+        }
+      });
+      console.log("[PhishGuard] 📄 Content signals merged:", signals);
+    });
+    return;
+  }
+
+  // ==============================
   // 🚨 Report Site Handler
   // ==============================
   if (message.action === "reportSite" && message.url) {

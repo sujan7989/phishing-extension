@@ -176,6 +176,30 @@ _URL_RE  = re.compile(r"^https?://", re.IGNORECASE)
 
 
 # ─────────────────────────────────────────────
+# DOMAIN AGE CHECK
+# Uses WHOIS RDAP — no API key needed
+# ─────────────────────────────────────────────
+def get_domain_age_days(domain):
+    """Returns domain age in days, or None if unavailable."""
+    try:
+        rdap_url = f"https://rdap.org/domain/{domain}"
+        req = urllib.request.Request(rdap_url, headers={"User-Agent": "PhishGuard/2.0"})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read())
+        # Look for registration date in events
+        for event in data.get("events", []):
+            if event.get("eventAction") in ("registration", "registered"):
+                reg_date_str = event.get("eventDate", "")
+                if reg_date_str:
+                    reg_date = datetime.fromisoformat(reg_date_str.replace("Z", "+00:00"))
+                    age_days = (datetime.now(reg_date.tzinfo) - reg_date).days
+                    return max(age_days, 0)
+    except Exception:
+        pass
+    return None
+
+
+# ─────────────────────────────────────────────
 # HELPERS
 # ─────────────────────────────────────────────
 
@@ -210,6 +234,7 @@ def _build_features(url, signals, probability, is_phishing):
         "Subdomain Depth":     signals.get("Subdomain Depth", "0"),
         "Encoded Chars (%xx)": signals.get("Encoded Chars", "0"),
         "Phishing Keywords":   signals.get("Keywords", "None"),
+        "Domain Age":          signals.get("Domain Age", "Unknown"),
         "Risk Score":          f"{probability}/100",
         "Verdict":             "PHISHING" if is_phishing else "LEGITIMATE",
     }
@@ -358,6 +383,24 @@ def detect_phishing(url):
         score += 25
         reasons.append("Domain is purely numeric")
         signals["Numeric Domain"] = "Yes"
+
+    # ── SIGNAL 14: Domain age ────────────────────────────────
+    root = f"{domain}.{suffix}" if domain and suffix else None
+    if root and not _IPv4_RE.match(hostname):
+        age_days = get_domain_age_days(root)
+        if age_days is not None:
+            if age_days < 30:
+                score += 40
+                reasons.append(f"Very new domain — only {age_days} days old (high phishing risk)")
+                signals["Domain Age"] = f"{age_days} days (NEW ⚠️)"
+            elif age_days < 90:
+                score += 20
+                reasons.append(f"Recently registered domain — {age_days} days old")
+                signals["Domain Age"] = f"{age_days} days (recent)"
+            else:
+                signals["Domain Age"] = f"{age_days} days"
+        else:
+            signals["Domain Age"] = "Unknown"
 
     # ── DECISION ─────────────────────────────────────────────
     probability = min(score, 100)

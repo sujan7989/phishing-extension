@@ -21,6 +21,14 @@
     "service_worker": "background.js"
   },
 
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+
   "action": {
     "default_icon": {
       "16": "icons/icon16.png",
