@@ -3,126 +3,271 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>PhishGuard - Dashboard</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>PhishGuard — Dashboard</title>
   <link rel="icon" href="icons/icon32.png" type="image/png" />
   <script src="chart.umd.min.js" defer></script>
-
   <style>
-    /* --- existing styles remain unchanged --- */
-    body { font-family: Arial, sans-serif; background: #f8f9fa; margin: 0; padding: 0; color: #333; transition: background 0.3s, color 0.3s; }
-    body.dark { background: #1e1e1e; color: #e0e0e0; }
-    .dashboard-box { padding: 20px; }
-    .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-    #backBtn, #darkModeToggle { padding: 6px 12px; border: none; border-radius: 6px; background: #0d6efd; color: #fff; cursor: pointer; font-size: 14px; transition: 0.2s; }
-    #backBtn:hover, #darkModeToggle:hover { background: #0b5ed7; }
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; margin-bottom: 20px; }
-    .stat-card { background: #fff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center; transition: transform 0.2s, background 0.3s; }
-    body.dark .stat-card { background: #2c2c2c; }
-    .stat-card:hover { transform: scale(1.03); }
-    .stat-card h3 { margin: 0; font-size: 20px; color: #004080; }
-    .stat-card p { margin: 5px 0 0; color: #555; font-size: 14px; }
-    body.dark .stat-card p { color: #ccc; }
-    #chartContainer, #timelineContainer { margin: 20px auto; width: 90%; max-width: 700px; background: #fff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: background 0.3s; }
-    body.dark #chartContainer, body.dark #timelineContainer { background: #2c2c2c; }
-    canvas { display: block; max-width: 100%; height: 300px !important; }
-    .controls { margin: 15px 0; text-align: center; display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
-    .controls select, .controls button, .controls input { padding: 8px 12px; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; transition: 0.2s; }
-    .controls button { background: #0d6efd; color: #fff; border: none; }
-    .controls button:hover { background: #0b5ed7; }
-    body.dark .controls select, body.dark .controls input { background: #333; color: #fff; border: 1px solid #666; }
-    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 14px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.05); transition: background 0.3s; }
-    body.dark table { background: #2c2c2c; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; word-break: break-word; }
-    body.dark th, body.dark td { border: 1px solid #444; }
-    th { background: #f4f4f4; }
-    body.dark th { background: #444; }
-    .center { text-align: center; margin: 15px 0; }
-    .clear-btn { background: #dc3545; color: #fff; padding: 8px 14px; border: none; border-radius: 6px; cursor: pointer; transition: 0.2s; }
-    .clear-btn:hover { background: #bb2d3b; }
-    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); }
-    .modal-content { background: #fff; margin: 8% auto; padding: 20px; border-radius: 10px; width: 80%; max-width: 600px; }
-    body.dark .modal-content { background: #2c2c2c; }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .modal-header h3 { margin: 0; color: #004080; }
-    .close { font-size: 22px; font-weight: bold; cursor: pointer; color: #333; }
-    .close:hover { color: red; }
-    #featuresTable { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 13px; }
-    #featuresTable th, #featuresTable td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
-    #featuresTable th { background: #f4f4f4; }
-    body.dark #featuresTable th { background: #444; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #f0f2ff;
+      color: #222;
+      min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
+    }
+    body.dark { background: #141414; color: #e0e0e0; }
+
+    /* ── Top bar ── */
+    .topbar {
+      background: linear-gradient(135deg, #1a237e, #1565c0);
+      color: #fff;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 12px; }
+    .topbar h1 { font-size: 18px; font-weight: 700; }
+    .topbar p  { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+    .topbar-right { display: flex; gap: 8px; }
+    .tb-btn {
+      padding: 7px 14px; border: none; border-radius: 7px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      background: rgba(255,255,255,0.15); color: #fff;
+      transition: background 0.2s;
+    }
+    .tb-btn:hover { background: rgba(255,255,255,0.28); }
+
+    /* ── Page wrapper ── */
+    .page { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+
+    /* ── Stats grid ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 18px 16px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      transition: transform 0.2s, background 0.3s;
+    }
+    body.dark .stat-card { background: #1e1e1e; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }
+    .stat-card:hover { transform: translateY(-2px); }
+    .stat-card .num { font-size: 32px; font-weight: 800; color: #1a237e; }
+    body.dark .stat-card .num { color: #90caf9; }
+    .stat-card .lbl { font-size: 12px; color: #888; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.4px; }
+    .stat-card.danger .num { color: #c62828; }
+    .stat-card.warn   .num { color: #f57c00; }
+    .stat-card.safe   .num { color: #2e7d32; }
+
+    /* ── Charts row ── */
+    .charts-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 700px) { .charts-row { grid-template-columns: 1fr; } }
+
+    .chart-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      transition: background 0.3s;
+    }
+    body.dark .chart-card { background: #1e1e1e; }
+    .chart-card h3 { font-size: 14px; font-weight: 700; color: #1a237e; margin-bottom: 12px; }
+    body.dark .chart-card h3 { color: #90caf9; }
+    canvas { max-height: 220px; }
+
+    /* ── Top domains ── */
+    .top-domains {
+      background: #fff;
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      margin-bottom: 24px;
+      transition: background 0.3s;
+    }
+    body.dark .top-domains { background: #1e1e1e; }
+    .top-domains h3 { font-size: 14px; font-weight: 700; color: #1a237e; margin-bottom: 12px; }
+    body.dark .top-domains h3 { color: #90caf9; }
+    .domain-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px;
+    }
+    body.dark .domain-row { border-color: #333; }
+    .domain-row:last-child { border-bottom: none; }
+    .domain-bar-wrap { flex: 1; background: #eee; border-radius: 6px; height: 8px; overflow: hidden; }
+    body.dark .domain-bar-wrap { background: #333; }
+    .domain-bar { height: 100%; border-radius: 6px; background: #c62828; }
+    .domain-count { font-weight: 700; color: #c62828; min-width: 24px; text-align: right; }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      align-items: center; margin-bottom: 14px;
+    }
+    .controls input, .controls select {
+      padding: 8px 12px; border: 1px solid #ccc; border-radius: 8px;
+      font-size: 13px; outline: none; background: #fff; color: #222;
+    }
+    body.dark .controls input, body.dark .controls select {
+      background: #2a2a2a; color: #e0e0e0; border-color: #444;
+    }
+    .controls input:focus, .controls select:focus { border-color: #1565c0; }
+    .ctrl-btn {
+      padding: 8px 14px; border: none; border-radius: 8px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      background: #1565c0; color: #fff; transition: background 0.2s;
+    }
+    .ctrl-btn:hover { background: #0d47a1; }
+    .ctrl-btn.danger { background: #c62828; }
+    .ctrl-btn.danger:hover { background: #b71c1c; }
+
+    /* ── Table ── */
+    .table-wrap {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      overflow: hidden; margin-bottom: 24px;
+      transition: background 0.3s;
+    }
+    body.dark .table-wrap { background: #1e1e1e; }
+    .table-wrap h3 { font-size: 15px; font-weight: 700; color: #1a237e; padding: 16px 18px 0; }
+    body.dark .table-wrap h3 { color: #90caf9; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border-bottom: 1px solid #f0f0f0; padding: 10px 14px; text-align: left; }
+    body.dark th, body.dark td { border-color: #2a2a2a; }
+    th { background: #e8eaf6; color: #1a237e; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; }
+    body.dark th { background: #252525; color: #90caf9; }
+    tr:hover td { background: #f5f7ff; }
+    body.dark tr:hover td { background: #252525; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+    .badge-phish { background: #ffebee; color: #c62828; }
+    .badge-safe  { background: #e8f5e9; color: #2e7d32; }
+    .feat-btn {
+      padding: 4px 10px; border: none; border-radius: 6px;
+      background: #1565c0; color: #fff; font-size: 12px;
+      font-weight: 600; cursor: pointer;
+    }
+    .feat-btn:hover { background: #0d47a1; }
+
+    /* ── Modal ── */
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; }
+    .modal-box {
+      background: #fff; border-radius: 14px; padding: 24px;
+      max-width: 560px; width: 90%; margin: 6% auto;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+    }
+    body.dark .modal-box { background: #1e1e1e; }
+    .modal-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .modal-top h3 { font-size: 16px; color: #1a237e; }
+    body.dark .modal-top h3 { color: #90caf9; }
+    .modal-close { font-size: 22px; cursor: pointer; color: #888; background: none; border: none; }
+    .modal-close:hover { color: #c62828; }
+    #featuresTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+    #featuresTable th, #featuresTable td { border: 1px solid #e0e0e0; padding: 8px 10px; }
+    #featuresTable th { background: #e8eaf6; color: #1a237e; }
+    body.dark #featuresTable th { background: #252525; color: #90caf9; }
+    body.dark #featuresTable td { border-color: #333; }
   </style>
 </head>
-<body class="dashboard">
-  <main class="dashboard-box">
-    <div class="top-bar">
-      <button id="backBtn" aria-label="Go back to previous page">⬅ Back</button>
-      <h2>📊 PhishGuard Activity Dashboard</h2>
-      <button id="darkModeToggle" aria-label="Toggle dark mode">🌙 Dark Mode</button>
-    </div>
+<body>
 
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <span style="font-size:26px;">🛡️</span>
+      <div>
+        <h1>PhishGuard Dashboard</h1>
+        <p>Real-time threat activity overview</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="tb-btn" id="darkModeToggle">🌙 Dark</button>
+      <button class="tb-btn" id="backBtn">⬅ Back</button>
+    </div>
+  </div>
+
+  <div class="page">
+
+    <!-- Stats -->
     <div class="stats-grid">
-      <div class="stat-card"><h3 id="totalCount">0</h3><p>Total URLs Checked</p></div>
-      <div class="stat-card"><h3 id="phishingCount">0</h3><p>Phishing</p></div>
-      <div class="stat-card"><h3 id="suspiciousCount">0</h3><p>Suspicious</p></div>
-      <div class="stat-card"><h3 id="safeCount">0</h3><p>Safe</p></div>
+      <div class="stat-card danger"><div class="num" id="totalThreats">0</div><div class="lbl">Total Threats</div></div>
+      <div class="stat-card warn"> <div class="num" id="todayThreats">0</div><div class="lbl">Today</div></div>
+      <div class="stat-card">     <div class="num" id="weekThreats">0</div> <div class="lbl">This Week</div></div>
+      <div class="stat-card safe"><div class="num" id="totalScanned">0</div><div class="lbl">Total Scanned</div></div>
     </div>
 
-    <div id="chartContainer"><canvas id="phishChart"></canvas></div>
-    <div id="timelineContainer"><canvas id="timelineChart"></canvas></div>
+    <!-- Charts -->
+    <div class="charts-row">
+      <div class="chart-card">
+        <h3>📅 Daily Threats (Last 7 Days)</h3>
+        <canvas id="timelineChart"></canvas>
+      </div>
+      <div class="chart-card">
+        <h3>🥧 Detection Breakdown</h3>
+        <canvas id="pieChart"></canvas>
+      </div>
+    </div>
 
+    <!-- Top blocked domains -->
+    <div class="top-domains">
+      <h3>🏴‍☠️ Top Blocked Domains</h3>
+      <div id="topDomains"><span style="color:#aaa;font-size:13px;">No data yet</span></div>
+    </div>
+
+    <!-- Controls -->
     <div class="controls">
-      <label for="filterSelect"><b>Filter:</b></label>
       <select id="filterSelect">
-        <option value="all">All</option>
-        <option value="phishing">Phishing</option>
-        <option value="suspicious">Suspicious</option>
-        <option value="safe">Safe</option>
+        <option value="all">All Records</option>
+        <option value="phishing">Phishing Only</option>
       </select>
-      <input type="text" id="searchInput" placeholder="🔍 Search URL..." />
-      <button id="exportHistoryBtn">⬇ Export CSV</button>
-      <button id="exportPdfBtn">📑 Export PDF</button>
+      <input type="text" id="searchInput" placeholder="🔍 Search URL..." style="flex:1;min-width:180px;" />
+      <button class="ctrl-btn" id="exportCsvBtn">⬇ Export CSV</button>
+      <button class="ctrl-btn" id="exportPdfBtn">📑 Export PDF</button>
+      <button class="ctrl-btn danger" id="clearHistoryBtn">🗑 Clear</button>
     </div>
 
-    <!-- ================== History Table ================== -->
-    <h3>Scan History</h3>
-    <table id="historyTable">
-      <thead>
-        <tr>
-          <th>Time</th><th>URL</th><th>Prediction</th><th>Probability</th><th>Features</th>
-        </tr>
-      </thead>
-      <tbody id="historyBody"></tbody>
-    </table>
-
-    <div class="center">
-      <button id="clearHistoryBtn" class="clear-btn">🗑 Clear History</button>
+    <!-- History table -->
+    <div class="table-wrap">
+      <h3>Scan History</h3>
+      <table>
+        <thead><tr><th>Time</th><th>URL</th><th>Verdict</th><th>Risk</th><th>Details</th></tr></thead>
+        <tbody id="historyBody"></tbody>
+      </table>
     </div>
 
-    <!-- ================== Reported Sites Table ================== -->
-    <h3>Reported Sites</h3>
-    <table id="reportedTable">
-      <thead>
-        <tr>
-          <th>Time</th><th>URL</th><th>Status</th>
-        </tr>
-      </thead>
-      <tbody id="reportedBody"></tbody>
-    </table>
-  </main>
+    <!-- Reported sites -->
+    <div class="table-wrap">
+      <h3>Reported Sites</h3>
+      <table>
+        <thead><tr><th>Time</th><th>URL</th><th>Status</th></tr></thead>
+        <tbody id="reportedBody"></tbody>
+      </table>
+    </div>
+
+  </div>
 
   <!-- Features Modal -->
-  <div id="featuresModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 id="featuresModalTitle">🤖 AI Features</h3>
-        <span class="close" id="closeModal">&times;</span>
+  <div class="modal" id="featuresModal">
+    <div class="modal-box">
+      <div class="modal-top">
+        <h3>🤖 AI Feature Breakdown</h3>
+        <button class="modal-close" id="closeModal">✕</button>
       </div>
       <table id="featuresTable">
         <thead><tr><th>Feature</th><th>Value</th></tr></thead>
-        <tbody id="featuresBody">
-          <tr><td colspan="2" style="text-align:center; color:gray;">No features loaded</td></tr>
-        </tbody>
+        <tbody id="featuresBody"></tbody>
       </table>
     </div>
   </div>

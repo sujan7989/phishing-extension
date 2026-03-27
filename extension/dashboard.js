@@ -1,161 +1,268 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const historyBody = document.getElementById("historyBody");
-  const reportedBody = document.getElementById("reportedBody");
-  const clearBtn = document.getElementById("clearHistoryBtn");
-  const exportBtn = document.getElementById("exportHistoryBtn");
-  const exportPdfBtn = document.getElementById("exportPdfBtn");
-  const filterSelect = document.getElementById("filterSelect");
-  const searchInput = document.getElementById("searchInput");
-  const backBtn = document.getElementById("backBtn");
-  const darkToggle = document.getElementById("darkModeToggle");
 
-  const featuresBody = document.getElementById("featuresBody");
+  // ── Element refs ──────────────────────────────────────────
+  const historyBody   = document.getElementById("historyBody");
+  const reportedBody  = document.getElementById("reportedBody");
+  const filterSelect  = document.getElementById("filterSelect");
+  const searchInput   = document.getElementById("searchInput");
+  const clearBtn      = document.getElementById("clearHistoryBtn");
+  const exportCsvBtn  = document.getElementById("exportCsvBtn");
+  const exportPdfBtn  = document.getElementById("exportPdfBtn");
+  const backBtn       = document.getElementById("backBtn");
+  const darkToggle    = document.getElementById("darkModeToggle");
   const featuresModal = document.getElementById("featuresModal");
-  const closeModal = document.getElementById("closeModal");
+  const featuresBody  = document.getElementById("featuresBody");
+  const closeModal    = document.getElementById("closeModal");
 
-  const totalCountEl = document.getElementById("totalCount");
-  const phishingCountEl = document.getElementById("phishingCount");
-  const suspiciousCountEl = document.getElementById("suspiciousCount");
-  const safeCountEl = document.getElementById("safeCount");
-
-  const barCtx = document.getElementById("phishChart")?.getContext("2d");
-  const lineCtx = document.getElementById("timelineChart")?.getContext("2d");
-
-  let phishChart = null;
   let timelineChart = null;
+  let pieChart      = null;
 
-  // ================= Stats =================
-  function updateStats(history) {
-    const counts = { phishing: 0, suspicious: 0, safe: 0 };
-    history.forEach((entry) => {
-      const key = (entry.prediction || entry.reason || "").toLowerCase();
-      if (counts[key] !== undefined) counts[key]++;
+  // ── Dark mode ─────────────────────────────────────────────
+  chrome.storage.local.get(["darkMode"], (res) => {
+    if (res.darkMode) { document.body.classList.add("dark"); darkToggle.textContent = "🌞 Light"; }
+  });
+  darkToggle?.addEventListener("click", () => {
+    const dark = document.body.classList.toggle("dark");
+    darkToggle.textContent = dark ? "🌞 Light" : "🌙 Dark";
+    chrome.storage.local.set({ darkMode: dark });
+  });
+
+  backBtn?.addEventListener("click", () => window.history.back());
+
+  // ── Main render ───────────────────────────────────────────
+  function render(filter = "all", search = "") {
+    chrome.storage.local.get(["phishingHistory", "reportedSites", "totalScanned"], (res) => {
+      const history  = Array.isArray(res.phishingHistory) ? res.phishingHistory : [];
+      const reported = Array.isArray(res.reportedSites)   ? res.reportedSites   : [];
+      const scanned  = (res.totalScanned || 0) + history.length;
+
+      updateStats(history, scanned);
+      updateCharts(history);
+      updateTopDomains(history);
+      renderHistory(history, filter, search);
+      renderReported(reported);
     });
-    // Total = phishing detected + legitimate scanned
-    chrome.storage.local.get({ totalScanned: 0 }, (res) => {
-      const total = history.length + (res.totalScanned || 0);
-      totalCountEl.textContent = total;
-    });
-    phishingCountEl.textContent = counts.phishing || history.length;
-    suspiciousCountEl.textContent = counts.suspicious;
-    safeCountEl.textContent = counts.safe;
   }
 
-  // ================= Charts =================
+  // ── Stats ─────────────────────────────────────────────────
+  function updateStats(history, scanned) {
+    const now     = new Date();
+    const today   = now.toDateString();
+    const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+    document.getElementById("totalThreats").textContent = history.length;
+    document.getElementById("todayThreats").textContent =
+      history.filter(h => h.time && new Date(h.time).toDateString() === today).length;
+    document.getElementById("weekThreats").textContent =
+      history.filter(h => h.time && new Date(h.time) >= weekAgo).length;
+    document.getElementById("totalScanned").textContent = scanned;
+  }
+
+  // ── Charts ────────────────────────────────────────────────
   function updateCharts(history) {
-    if (barCtx) {
-      const counts = { phishing: 0, suspicious: 0, safe: 0 };
-      history.forEach((entry) => {
-        const key = (entry.prediction || entry.reason || "").toLowerCase();
-        if (counts[key] !== undefined) counts[key]++;
+    // Daily threats — last 7 days
+    const timelineCtx = document.getElementById("timelineChart")?.getContext("2d");
+    if (timelineCtx) {
+      const days = [];
+      const counts = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        const dateStr = d.toDateString();
+        days.push(label);
+        counts.push(history.filter(h => h.time && new Date(h.time).toDateString() === dateStr).length);
+      }
+      const tData = {
+        labels: days,
+        datasets: [{
+          label: "Threats Blocked",
+          data: counts,
+          borderColor: "#c62828",
+          backgroundColor: "rgba(198,40,40,0.15)",
+          tension: 0.4,
+          fill: true,
+          pointBackgroundColor: "#c62828",
+          pointRadius: 4,
+        }]
+      };
+      if (timelineChart) { timelineChart.data = tData; timelineChart.update(); }
+      else {
+        timelineChart = new Chart(timelineCtx, {
+          type: "line", data: tData,
+          options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+        });
+      }
+    }
+
+    // Pie — breakdown
+    const pieCtx = document.getElementById("pieChart")?.getContext("2d");
+    if (pieCtx) {
+      const total   = history.length;
+      const blocked = total;
+      const safe    = Math.max(0, (parseInt(document.getElementById("totalScanned")?.textContent) || 0) - blocked);
+      const pData = {
+        labels: ["Threats Blocked", "Safe Sites"],
+        datasets: [{
+          data: [blocked, safe],
+          backgroundColor: ["#c62828", "#2e7d32"],
+          borderWidth: 2,
+          borderColor: "#fff",
+        }]
+      };
+      if (pieChart) { pieChart.data = pData; pieChart.update(); }
+      else {
+        pieChart = new Chart(pieCtx, {
+          type: "doughnut", data: pData,
+          options: { responsive: true, plugins: { legend: { position: "bottom" } }, cutout: "60%" }
+        });
+      }
+    }
+  }
+
+  // ── Top blocked domains ───────────────────────────────────
+  function updateTopDomains(history) {
+    const domainCount = {};
+    history.forEach(h => {
+      try {
+        const host = new URL(h.url).hostname;
+        domainCount[host] = (domainCount[host] || 0) + 1;
+      } catch (_) {}
+    });
+    const sorted = Object.entries(domainCount).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const container = document.getElementById("topDomains");
+    if (!container) return;
+    if (!sorted.length) { container.innerHTML = `<span style="color:#aaa;font-size:13px;">No threats blocked yet</span>`; return; }
+    const max = sorted[0][1];
+    container.innerHTML = sorted.map(([domain, count]) => `
+      <div class="domain-row">
+        <span style="min-width:180px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${domain}</span>
+        <div class="domain-bar-wrap"><div class="domain-bar" style="width:${Math.round((count/max)*100)}%"></div></div>
+        <span class="domain-count">${count}</span>
+      </div>`).join("");
+  }
+
+  // ── History table ─────────────────────────────────────────
+  function renderHistory(history, filter, search) {
+    let filtered = [...history];
+    if (filter === "phishing") filtered = filtered.filter(h => (h.prediction || "").toLowerCase() === "phishing");
+    if (search.trim()) filtered = filtered.filter(h => (h.url || "").toLowerCase().includes(search.toLowerCase()));
+    filtered.sort((a, b) => new Date(b.time) - new Date(a.time));
+
+    if (!filtered.length) {
+      historyBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#aaa;padding:20px;">No records found</td></tr>`;
+      return;
+    }
+    historyBody.innerHTML = "";
+    filtered.forEach(entry => {
+      const verdict   = (entry.prediction || "phishing").toLowerCase();
+      const badgeCls  = verdict === "phishing" ? "badge-phish" : "badge-safe";
+      const badgeTxt  = verdict === "phishing" ? "🚨 Phishing" : "✅ Safe";
+      const prob      = entry.probability || entry.riskScore || "—";
+      const timeStr   = entry.time ? new Date(entry.time).toLocaleString() : "—";
+      const shortUrl  = (entry.url || "").length > 55 ? entry.url.slice(0, 55) + "…" : (entry.url || "—");
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="white-space:nowrap;">${timeStr}</td>
+        <td title="${entry.url || ""}">${shortUrl}</td>
+        <td><span class="badge ${badgeCls}">${badgeTxt}</span></td>
+        <td>${prob}%</td>
+        <td><button class="feat-btn">View</button></td>`;
+      tr.querySelector(".feat-btn").addEventListener("click", () => openModal(entry));
+      historyBody.appendChild(tr);
+    });
+  }
+
+  // ── Reported sites ────────────────────────────────────────
+  function renderReported(reported) {
+    if (!reported.length) {
+      reportedBody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:#aaa;padding:16px;">No reported sites</td></tr>`;
+      return;
+    }
+    reportedBody.innerHTML = "";
+    [...reported].sort((a, b) => new Date(b.time) - new Date(a.time)).forEach(r => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${r.time ? new Date(r.time).toLocaleString() : "—"}</td><td>${r.url || "—"}</td><td><span class="badge badge-phish">Reported</span></td>`;
+      reportedBody.appendChild(tr);
+    });
+  }
+
+  // ── Features modal ────────────────────────────────────────
+  function openModal(entry) {
+    featuresBody.innerHTML = "";
+    const f = entry?.features || {};
+    if (!Object.keys(f).length) {
+      featuresBody.innerHTML = `<tr><td colspan="2" style="text-align:center;color:#aaa;">No features available</td></tr>`;
+    } else {
+      Object.entries(f).forEach(([k, v]) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td><strong>${k}</strong></td><td>${typeof v === "object" ? JSON.stringify(v) : v}</td>`;
+        featuresBody.appendChild(tr);
       });
-      const data = { labels: ["Phishing","Suspicious","Safe"], datasets:[{label:"Detections", data:[counts.phishing,counts.suspicious,counts.safe], backgroundColor:["#dc3545","#ffc107","#28a745"]}]};
-      if(phishChart){phishChart.data=data; phishChart.update();}else{phishChart=new Chart(barCtx,{type:"bar",data,options:{responsive:true,plugins:{tooltip:{enabled:true},legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});}
     }
-    if(lineCtx){
-      const countsByDate={};
-      history.forEach((entry)=>{if(entry.time){const date=new Date(entry.time).toLocaleDateString(); countsByDate[date]=(countsByDate[date]||0)+1;}});
-      const labels=Object.keys(countsByDate).sort((a,b)=>new Date(a)-new Date(b));
-      const values=labels.map(d=>countsByDate[d]);
-      const timelineData={labels,datasets:[{label:"Total Detections",data:values,borderColor:"#0d6efd",backgroundColor:"rgba(13,110,253,0.2)",tension:0.3,fill:true}]};
-      if(timelineChart){timelineChart.data=timelineData; timelineChart.update();}else{timelineChart=new Chart(lineCtx,{type:"line",data:timelineData,options:{responsive:true,plugins:{tooltip:{enabled:true},legend:{position:"top"}},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});}
-    }
+    featuresModal.style.display = "block";
   }
+  closeModal?.addEventListener("click", () => featuresModal.style.display = "none");
+  window.addEventListener("click", e => { if (e.target === featuresModal) featuresModal.style.display = "none"; });
+  window.addEventListener("keydown", e => { if (e.key === "Escape") featuresModal.style.display = "none"; });
 
-  // ================= Render History =================
-  function renderHistory(filter="all",search="") {
-    chrome.storage.local.get(["phishingHistory","reportedSites"],(result)=>{
-      const history=Array.isArray(result.phishingHistory)?result.phishingHistory:[];
-      const reported=Array.isArray(result.reportedSites)?result.reportedSites:[];
-
-      // --- History Table ---
-      historyBody.innerHTML="";
-      let filtered=history;
-      if(filter!=="all"){filtered=filtered.filter(h=>h.reason?.toLowerCase()===filter||h.prediction?.toLowerCase()===filter);}
-      if(search.trim()!==""){filtered=filtered.filter(h=>(h.url||"").toLowerCase().includes(search.toLowerCase()));}
-      if(filtered.length===0){historyBody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:gray;">No records found</td></tr>`; updateStats([]); updateCharts([]);}else{
-        filtered.sort((a,b)=>new Date(b.time)-new Date(a.time));
-        filtered.forEach(entry=>{
-          const row=document.createElement("tr");
-          row.innerHTML=`<td>${entry.time?new Date(entry.time).toLocaleString():"N/A"}</td><td>${entry.url||"N/A"}</td><td>${entry.prediction||entry.reason||"Unknown"}</td><td>${entry.probability||"N/A"}</td><td><button class="view-features-btn">View Features</button></td>`;
-          row.querySelector(".view-features-btn").addEventListener("click",()=>{
-            renderFeatures(entry); featuresModal.style.display="block";
-          });
-          historyBody.appendChild(row);
-        });
-        updateStats(history);
-        updateCharts(history);
-      }
-
-      // --- Reported Sites Table ---
-      reportedBody.innerHTML="";
-      if(reported.length===0){reportedBody.innerHTML=`<tr><td colspan="3" style="text-align:center;color:gray;">No reported sites</td></tr>`;}else{
-        reported.sort((a,b)=>new Date(b.time)-new Date(a.time));
-        reported.forEach(r=>{
-          const row=document.createElement("tr");
-          row.innerHTML=`<td>${r.time?new Date(r.time).toLocaleString():"N/A"}</td><td>${r.url||"N/A"}</td><td>${r.status||"Reported"}</td>`;
-          reportedBody.appendChild(row);
-        });
-      }
-    });
-  }
-
-  // ================= Render AI Features =================
-  function renderFeatures(entry){
-    featuresBody.innerHTML="";
-    if(!entry?.features||Object.keys(entry.features).length===0){featuresBody.innerHTML=`<tr><td colspan="2" style="text-align:center;color:gray;">No features available</td></tr>`;return;}
-    Object.entries(entry.features).forEach(([k,v])=>{const row=document.createElement("tr"); row.innerHTML=`<td>${k}</td><td>${typeof v==="object"?JSON.stringify(v):v}</td>`; featuresBody.appendChild(row);});
-  }
-
-  // ================= Event Listeners =================
-  renderHistory();
-
-  filterSelect?.addEventListener("change",()=>renderHistory(filterSelect.value,searchInput.value));
-  searchInput?.addEventListener("input",()=>renderHistory(filterSelect.value,searchInput.value));
-
-  clearBtn?.addEventListener("click",()=>{
-    if(confirm("Are you sure you want to clear all history?")){
-      chrome.storage.local.remove("phishingHistory",()=>{historyBody.innerHTML=`<tr><td colspan="5" style="text-align:center;color:gray;">History cleared</td></tr>`; updateStats([]); updateCharts([]);});
-    }
-  });
-
-  // ================= Export CSV =================
-  exportBtn?.addEventListener("click",()=>{
-    chrome.storage.local.get(["phishingHistory","reportedSites"],(result)=>{
-      const history=Array.isArray(result.phishingHistory)?result.phishingHistory:[]; if(history.length===0)return alert("No history to export.");
-      let csv="Time,URL,Prediction,Probability,Features\n";
-      history.forEach(h=>{const f=h.features?JSON.stringify(h.features).replace(/"/g,'""'):""; csv+=`"${h.time?new Date(h.time).toLocaleString():"N/A"}","${h.url||""}","${h.prediction||h.reason||"Unknown"}","${h.probability||"N/A"}","${f}"\n`;});
-      const blob=new Blob([csv],{type:"text/csv"}); const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=`phishguard_history_${Date.now()}.csv`; a.click(); URL.revokeObjectURL(url);
+  // ── Export CSV ────────────────────────────────────────────
+  exportCsvBtn?.addEventListener("click", () => {
+    chrome.storage.local.get(["phishingHistory"], (res) => {
+      const history = res.phishingHistory || [];
+      if (!history.length) return alert("No history to export.");
+      let csv = "Time,URL,Prediction,Risk Score,Reason\n";
+      history.forEach(h => {
+        csv += `"${h.time ? new Date(h.time).toLocaleString() : ""}","${h.url || ""}","${h.prediction || "phishing"}","${h.probability || ""}","${(h.reason || "").replace(/"/g, '""')}"\n`;
+      });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+      a.download = `phishguard_${Date.now()}.csv`;
+      a.click();
     });
   });
 
-  // ================= Export PDF =================
-  exportPdfBtn?.addEventListener("click",()=>{
-    chrome.storage.local.get(["phishingHistory"],(result)=>{
-      const history=Array.isArray(result.phishingHistory)?result.phishingHistory:[]; if(history.length===0)return alert("No history to export.");
-      let html=`<html><head><title>PhishGuard History PDF</title></head><body><h2>PhishGuard - Scan History</h2><table border="1" cellspacing="0" cellpadding="5"><tr><th>Time</th><th>URL</th><th>Prediction</th><th>Probability</th></tr>`;
-      history.forEach(h=>{html+=`<tr><td>${h.time?new Date(h.time).toLocaleString():"N/A"}</td><td>${h.url||""}</td><td>${h.prediction||h.reason||"Unknown"}</td><td>${h.probability||"N/A"}</td></tr>`;});
-      html+="</table></body></html>";
-      const win=window.open("","_blank"); win.document.write(html); win.document.close(); win.focus(); win.print();
+  // ── Export PDF ────────────────────────────────────────────
+  exportPdfBtn?.addEventListener("click", () => {
+    chrome.storage.local.get(["phishingHistory"], (res) => {
+      const history = res.phishingHistory || [];
+      if (!history.length) return alert("No history to export.");
+      let html = `<html><head><title>PhishGuard Report</title>
+        <style>body{font-family:Arial;padding:20px}h2{color:#1a237e}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #ddd;padding:8px}th{background:#e8eaf6;color:#1a237e}</style>
+        </head><body><h2>🛡️ PhishGuard — Threat Report</h2>
+        <p>Generated: ${new Date().toLocaleString()}</p>
+        <table><thead><tr><th>Time</th><th>URL</th><th>Verdict</th><th>Risk</th><th>Reason</th></tr></thead><tbody>`;
+      history.forEach(h => {
+        html += `<tr><td>${h.time ? new Date(h.time).toLocaleString() : ""}</td><td>${h.url || ""}</td><td>${h.prediction || "phishing"}</td><td>${h.probability || ""}%</td><td>${h.reason || ""}</td></tr>`;
+      });
+      html += `</tbody></table></body></html>`;
+      const w = window.open("", "_blank");
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      w.print();
     });
   });
 
-  // ================= Modal Events =================
-  closeModal?.addEventListener("click",()=>{featuresModal.style.display="none";});
-  window.addEventListener("click",(e)=>{if(e.target===featuresModal)featuresModal.style.display="none";});
-  window.addEventListener("keydown",(e)=>{if(e.key==="Escape"&&featuresModal.style.display==="block"){featuresModal.style.display="none";}});
-
-  backBtn?.addEventListener("click",()=>{ window.history.back(); });
-
-  // ================= Dark Mode Toggle =================
-  if(darkToggle){
-    function updateDarkToggle(isDark){darkToggle.textContent=isDark?"🌞 Light Mode":"🌙 Dark Mode";}
-    chrome.storage.local.get(["darkMode"],(res)=>{if(res.darkMode){document.body.classList.add("dark"); updateDarkToggle(true);}else{updateDarkToggle(false);}});
-    darkToggle.addEventListener("click",()=>{const isDark=document.body.classList.toggle("dark"); chrome.storage.local.set({darkMode:isDark}); updateDarkToggle(isDark);});
-  }
-
-  // ================= Listen for Report Updates =================
-  chrome.storage.onChanged.addListener((changes, area)=>{
-    if(area==="local"&&(changes.reportedSites||changes.phishingHistory)){ renderHistory(filterSelect.value,searchInput.value);}
+  // ── Clear history ─────────────────────────────────────────
+  clearBtn?.addEventListener("click", () => {
+    if (confirm("Clear all scan history?")) {
+      chrome.storage.local.remove(["phishingHistory", "totalScanned"], () => render());
+    }
   });
+
+  // ── Filter / search ───────────────────────────────────────
+  filterSelect?.addEventListener("change", () => render(filterSelect.value, searchInput.value));
+  searchInput?.addEventListener("input",   () => render(filterSelect.value, searchInput.value));
+
+  // ── Live updates ──────────────────────────────────────────
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && (changes.phishingHistory || changes.reportedSites)) {
+      render(filterSelect.value, searchInput.value);
+    }
+  });
+
+  // ── Init ──────────────────────────────────────────────────
+  render();
 });
