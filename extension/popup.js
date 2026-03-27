@@ -86,6 +86,9 @@ document.addEventListener("DOMContentLoaded", () => {
       resultDiv.innerHTML =
         `<strong>${icon} ${prediction.charAt(0).toUpperCase() + prediction.slice(1)}</strong><br>` +
         `Risk Score: ${prob.toFixed(1)}%`;
+
+      // Show content signals if any were detected on this page
+      showContentSignals(url);
     } catch {
       resultDiv.className = "result-box safe";
       resultDiv.innerHTML = "⚡ Running in local mode — still protected.";
@@ -120,6 +123,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (scanBtn)   scanBtn.addEventListener("click", runManualScan);
   if (scanInput) scanInput.addEventListener("keydown", (e) => { if (e.key === "Enter") runManualScan(); });
+
+  // ── Content signals from page inspection ─────────────────
+  function showContentSignals(tabUrl) {
+    chrome.storage.local.get(["lastDetection"], (res) => {
+      const d = res?.lastDetection || {};
+      // Only show if it's for the current tab's URL
+      if (!d.url || !tabUrl.startsWith(d.url.split("?")[0])) return;
+      const f = d.features || {};
+      const items = [];
+      if (f["Password Field"] === "Yes")   items.push("🔑 Password form detected");
+      if (f["Form Action Mismatch"])        items.push(`🚨 Form submits to: ${f["Form Action Mismatch"]}`);
+      if (f["Hidden Iframes"])              items.push(`👁️ ${f["Hidden Iframes"]} hidden iframe(s)`);
+      if (f["Title Spoofing"])              items.push(`🎭 Title spoofs: ${f["Title Spoofing"]}`);
+      if (f["Domain Age"]?.includes("NEW")) items.push(`🆕 ${f["Domain Age"]}`);
+
+      const el = document.getElementById("contentSignals");
+      if (el && items.length) {
+        el.style.display = "block";
+        el.innerHTML = "<strong>📄 Page Signals:</strong><br>" + items.join("<br>");
+      }
+    });
+  }
 
   // ── Dashboard ────────────────────────────────────────────
   if (dashBtn) {
