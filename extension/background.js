@@ -116,36 +116,22 @@ async function isUserTrusted(url) {
 // ==============================
 function setPhishingBadge(tabId) {
   if (!tabId || isNaN(tabId)) return;
-  safeChromeAction(chrome.action.setIcon, { tabId, path: ICONS }, "setIcon");
-  safeChromeAction(
-    chrome.action.setBadgeText,
-    { tabId, text: "!" },
-    "setBadgeText"
-  );
-  safeChromeAction(
-    chrome.action.setBadgeBackgroundColor,
-    { tabId, color: "#FF0000" },
-    "setBadgeBackgroundColor"
-  );
+  chrome.tabs.get(tabId, (tab) => {
+    if (chrome.runtime.lastError || !tab) return;
+    safeChromeAction(chrome.action.setIcon, { tabId, path: ICONS }, "setIcon");
+    safeChromeAction(chrome.action.setBadgeText, { tabId, text: "!" }, "setBadgeText");
+    safeChromeAction(chrome.action.setBadgeBackgroundColor, { tabId, color: "#FF0000" }, "setBadgeBackgroundColor");
+  });
 }
 
 function clearBadge(tabId) {
   if (!tabId || isNaN(tabId)) return;
-  safeChromeAction(
-    chrome.action.setIcon,
-    { tabId, path: ICONS },
-    "clearBadge setIcon"
-  );
-  safeChromeAction(
-    chrome.action.setBadgeText,
-    { tabId, text: "" },
-    "clearBadge setBadgeText"
-  );
-  safeChromeAction(
-    chrome.action.setBadgeBackgroundColor,
-    { tabId, color: "#00000000" },
-    "clearBadge setBadgeBackgroundColor"
-  );
+  chrome.tabs.get(tabId, (tab) => {
+    if (chrome.runtime.lastError || !tab) return;
+    safeChromeAction(chrome.action.setIcon, { tabId, path: ICONS }, "clearBadge setIcon");
+    safeChromeAction(chrome.action.setBadgeText, { tabId, text: "" }, "clearBadge setBadgeText");
+    safeChromeAction(chrome.action.setBadgeBackgroundColor, { tabId, color: "#00000000" }, "clearBadge setBadgeBackgroundColor");
+  });
 }
 
 // ==============================
